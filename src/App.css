@@ -1,0 +1,576 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  background: #f5f6f8;
+  color: #222;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.app {
+  min-height: 100vh;
+}
+
+.header {
+  min-height: 60px;
+
+  display: flex;
+  align-items: center;
+
+  padding: 0 16px;
+
+  background: white;
+
+  border-bottom: 1px solid #ddd;
+
+  position: sticky;
+  top: 0;
+
+  z-index: 10;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.back-button {
+  border: none;
+
+  background: transparent;
+
+  font-size: 28px;
+
+  margin-right: 12px;
+
+  padding: 4px 8px 4px 0;
+}
+
+.project-container,
+.form-container {
+  max-width: 700px;
+
+  margin: 0 auto;
+
+  padding: 20px 16px 100px;
+}
+
+.empty {
+  margin-top: 100px;
+
+  text-align: center;
+
+  color: #777;
+}
+
+.empty-icon {
+  font-size: 52px;
+
+  margin-bottom: 12px;
+}
+
+.empty p {
+  font-size: 18px;
+
+  margin-bottom: 8px;
+}
+
+.project-list {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 12px;
+}
+
+.project-card {
+  background: white;
+
+  border-radius: 12px;
+
+  border: 1px solid #ddd;
+
+  overflow: hidden;
+}
+
+.project-main {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 6px;
+
+  width: 100%;
+
+  padding: 16px;
+
+  text-align: left;
+
+  border: none;
+
+  background: white;
+}
+
+.project-main:active {
+  background: #f7f7f7;
+}
+
+.project-main strong {
+  font-size: 18px;
+}
+
+.project-main span {
+  font-size: 14px;
+
+  color: #666;
+}
+
+.delete-button {
+  width: 100%;
+
+  padding: 10px;
+
+  border: none;
+
+  border-top: 1px solid #eee;
+
+  background: white;
+
+  color: #d22;
+}
+
+.form-container {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 20px;
+}
+
+.form-container label {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 8px;
+
+  font-weight: 600;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+
+  padding: 12px;
+
+  border: 1px solid #ccc;
+
+  border-radius: 8px;
+
+  background: white;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.checkbox-row {
+  flex-direction: row !important;
+
+  align-items: center;
+
+  gap: 10px !important;
+}
+
+.checkbox-row input {
+  width: 20px;
+  height: 20px;
+}
+
+.save-button {
+  padding: 14px;
+
+  border: none;
+
+  border-radius: 10px;
+
+  background: #1976d2;
+
+  color: white;
+
+  font-weight: bold;
+
+  font-size: 16px;
+}
+
+.floating-button {
+  position: fixed;
+
+  right: 24px;
+  bottom: 24px;
+
+  width: 60px;
+  height: 60px;
+
+  border: none;
+  border-radius: 50%;
+
+  background: #1976d2;
+
+  color: white;
+
+  font-size: 32px;
+
+  line-height: 1;
+
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+/* 案件詳細 */
+
+.detail-card {
+  background: white;
+
+  border: 1px solid #ddd;
+
+  border-radius: 14px;
+
+  padding: 18px;
+}
+
+.detail-header {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: flex-start;
+
+  gap: 16px;
+
+  margin-bottom: 20px;
+}
+
+.detail-header h2 {
+  margin: 0 0 6px;
+
+  font-size: 20px;
+}
+
+.detail-header p {
+  margin: 0;
+
+  color: #666;
+
+  font-size: 14px;
+}
+
+.small-button {
+  flex-shrink: 0;
+
+  border: none;
+
+  border-radius: 8px;
+
+  padding: 9px 12px;
+
+  background: #e8f2ff;
+
+  color: #1267b9;
+
+  font-weight: 600;
+}
+
+.detail-grid {
+  display: grid;
+
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  gap: 16px;
+}
+
+.detail-grid > div {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 4px;
+}
+
+.detail-label {
+  font-size: 12px;
+
+  color: #777;
+}
+
+.detail-grid strong {
+  font-size: 15px;
+}
+
+.project-memo {
+  margin-top: 20px;
+
+  border-top: 1px solid #eee;
+
+  padding-top: 16px;
+}
+
+.project-memo p {
+  margin: 6px 0 0;
+
+  white-space: pre-wrap;
+
+  line-height: 1.6;
+}
+
+/* 境界点 */
+
+.boundary-section {
+  margin-top: 24px;
+}
+
+.section-title-row {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  gap: 16px;
+
+  margin-bottom: 12px;
+}
+
+.section-title-row > div {
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+}
+
+.section-title-row h2 {
+  margin: 0;
+
+  font-size: 20px;
+}
+
+.count-text {
+  font-size: 13px;
+
+  color: #777;
+}
+
+.boundary-empty {
+  background: white;
+
+  border: 1px dashed #bbb;
+
+  border-radius: 14px;
+
+  padding: 36px 16px;
+
+  text-align: center;
+
+  color: #777;
+}
+
+.boundary-empty-icon {
+  font-size: 38px;
+}
+
+.boundary-empty p {
+  margin: 10px 0 6px;
+
+  font-weight: 600;
+
+  color: #444;
+}
+
+.boundary-empty span {
+  font-size: 13px;
+}
+
+.boundary-list {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 12px;
+}
+
+.boundary-card {
+  display: flex;
+
+  overflow: hidden;
+
+  background: white;
+
+  border: 1px solid #ddd;
+
+  border-radius: 12px;
+}
+
+.boundary-main {
+  flex: 1;
+
+  border: none;
+
+  background: white;
+
+  padding: 14px 16px;
+
+  text-align: left;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 16px;
+}
+
+.boundary-main:active {
+  background: #f7f7f7;
+}
+
+.boundary-name {
+  min-width: 48px;
+
+  height: 48px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: #e8f2ff;
+
+  color: #1267b9;
+
+  font-weight: 700;
+}
+
+.boundary-info {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 4px;
+}
+
+.boundary-info span {
+  font-size: 14px;
+
+  color: #666;
+}
+
+.boundary-delete-button {
+  border: none;
+
+  border-left: 1px solid #eee;
+
+  background: white;
+
+  color: #d22;
+
+  padding: 0 14px;
+}
+
+@media (max-width: 480px) {
+  .detail-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .boundary-main {
+    gap: 12px;
+  }
+
+  .boundary-delete-button {
+    padding: 0 12px;
+  }
+}
+
+/* 写真 */
+
+.photo-section {
+  margin-top: 24px;
+}
+
+.photo-add-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+}
+
+.hidden-file-input {
+  display: none;
+}
+
+.photo-grid {
+  display: grid;
+
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  gap: 12px;
+}
+
+.photo-card {
+  overflow: hidden;
+
+  background: white;
+
+  border: 1px solid #ddd;
+
+  border-radius: 12px;
+}
+
+.photo-card img {
+  display: block;
+
+  width: 100%;
+  aspect-ratio: 1 / 1;
+
+  object-fit: cover;
+
+  background: #eee;
+}
+
+.photo-delete-button {
+  width: 100%;
+
+  padding: 10px;
+
+  border: none;
+
+  border-top: 1px solid #eee;
+
+  background: white;
+
+  color: #d22;
+}
+
+@media (min-width: 600px) {
+  .photo-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
