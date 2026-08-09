@@ -993,3 +993,172 @@ textarea {
 .project-main span {
   overflow-wrap: anywhere;
 }
+
+/*
+ * ========================================
+ * 写真種別
+ * ========================================
+ */
+
+ .photo-category-box {
+  margin-bottom: 18px;
+
+  padding: 16px;
+
+  background: #ffffff;
+
+  border: 1px solid #dddddd;
+
+  border-radius: 14px;
+}
+
+.photo-category-title {
+  margin-bottom: 12px;
+
+  color: #555555;
+
+  font-size: 13px;
+
+  font-weight: 600;
+}
+
+.photo-category-chips {
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: 8px;
+
+  margin-bottom: 14px;
+}
+
+.photo-category-chip {
+  border: 1px solid #d0d7de;
+
+  border-radius: 20px;
+
+  padding: 8px 12px;
+
+  background: #ffffff;
+
+  color: #444444;
+
+  -webkit-text-fill-color: #444444;
+
+  font-size: 13px;
+}
+
+.photo-category-chip.active {
+  border-color: #1976d2;
+
+  background: #e8f2ff;
+
+  color: #1267b9;
+
+  -webkit-text-fill-color: #1267b9;
+
+  font-weight: 700;
+}
+
+.photo-capture-button {
+  min-height: 48px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  width: 100%;
+
+  padding: 12px;
+
+  border-radius: 10px;
+
+  background: #1976d2;
+
+  color: #ffffff;
+
+  -webkit-text-fill-color: #ffffff;
+
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.photo-image-wrapper {
+  position: relative;
+}
+
+.photo-category-badge {
+  position: absolute;
+
+  left: 8px;
+  bottom: 8px;
+
+  padding: 5px 8px;
+
+  border-radius: 6px;
+
+  background:
+    rgba(0, 0, 0, 0.72);
+
+  color: #ffffff;
+
+  -webkit-text-fill-color: #ffffff;
+
+  font-size: 11px;
+
+  font-weight: 700;
+}
+
+.photo-card-controls {
+  padding: 8px;
+}
+
+.photo-card-controls select {
+  width: 100%;
+
+  margin-bottom: 6px;
+
+  padding: 8px;
+
+  font-size: 12px;
+
+  background: #ffffff;
+
+  color: #222222;
+
+  -webkit-text-fill-color: #222222;
+}
+
+.photo-card-controls .photo-delete-button {
+  border-top: none;
+
+  border-radius: 6px;
+
+  background: #ffffff;
+}
+
+/*
+ * Androidダークモードでも写真分類をライト表示
+ */
+
+@media (prefers-color-scheme: dark) {
+  .photo-category-box,
+  .photo-category-chip,
+  .photo-card-controls,
+  .photo-card-controls select {
+    background: #ffffff;
+
+    color: #222222;
+  }
+
+  .photo-category-chip.active {
+    background: #e8f2ff;
+
+    color: #1267b9;
+
+    -webkit-text-fill-color: #1267b9;
+  }
+}

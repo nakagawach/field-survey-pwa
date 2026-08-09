@@ -135,6 +135,9 @@ function App() {
     setPhotos(data)
   }
 
+  const [selectedPhotoCategory, setSelectedPhotoCategory] =
+    useState('境界標アップ')
+
   useEffect(() => {
     loadProjects()
   }, [])
@@ -491,6 +494,9 @@ function App() {
         boundaryPointId:
           selectedBoundaryPoint.id,
 
+        category:
+          selectedPhotoCategory,
+
         fileName: file.name,
         fileType: file.type,
         fileSize: file.size,
@@ -542,6 +548,24 @@ function App() {
     await loadBoundaryPoints(
       selectedProject.id
     )
+  }
+
+  const handleChangePhotoCategory = async (
+    photo: BoundaryPhoto,
+    category: string
+  ) => {
+    const updatedPhoto: BoundaryPhoto = {
+      ...photo,
+      category,
+    }
+
+    await savePhoto(updatedPhoto)
+
+    if (selectedBoundaryPoint) {
+      await loadPhotos(
+        selectedBoundaryPoint.id
+      )
+    }
   }
 
   /*
@@ -1057,9 +1081,43 @@ function App() {
                   {photos.length}枚
                 </span>
               </div>
+            </div>
 
-              <label className="small-button photo-add-button">
-                ＋ 写真追加
+            <div className="photo-category-box">
+              <div className="photo-category-title">
+                撮影する写真の種類
+              </div>
+
+              <div className="photo-category-chips">
+                {[
+                  '全景',
+                  '境界標アップ',
+                  '接面道路',
+                  '周辺状況',
+                  '図面・資料',
+                  'その他',
+                ].map((category) => (
+                  <button
+                    key={category}
+                    type="button"
+                    className={
+                      selectedPhotoCategory === category
+                        ? 'photo-category-chip active'
+                        : 'photo-category-chip'
+                    }
+                    onClick={() =>
+                      setSelectedPhotoCategory(
+                        category
+                      )
+                    }
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
+
+              <label className="photo-capture-button">
+                📷 {selectedPhotoCategory}を撮影
 
                 <input
                   className="hidden-file-input"
@@ -1085,7 +1143,7 @@ function App() {
                 </p>
 
                 <span>
-                  「＋ 写真追加」から撮影してください
+                  写真種別を選んで撮影してください
                 </span>
               </div>
             ) : (
@@ -1104,28 +1162,80 @@ function App() {
                           photo.id
                         }
                       >
-                        <img
-                          src={imageUrl}
-                          alt={
-                            photo.fileName
-                          }
-                          onLoad={() =>
-                            URL.revokeObjectURL(
+                        <div className="photo-image-wrapper">
+                          <img
+                            src={
                               imageUrl
-                            )
-                          }
-                        />
+                            }
+                            alt={
+                              photo.fileName
+                            }
+                            onLoad={() =>
+                              URL.revokeObjectURL(
+                                imageUrl
+                              )
+                            }
+                          />
 
-                        <button
-                          className="photo-delete-button"
-                          onClick={() =>
-                            handleDeletePhoto(
-                              photo
-                            )
-                          }
-                        >
-                          削除
-                        </button>
+                          <div className="photo-category-badge">
+                            {photo.category ||
+                              '未分類'}
+                          </div>
+                        </div>
+
+                        <div className="photo-card-controls">
+                          <select
+                            value={
+                              photo.category ||
+                              ''
+                            }
+                            onChange={(e) =>
+                              handleChangePhotoCategory(
+                                photo,
+                                e.target.value
+                              )
+                            }
+                          >
+                            <option value="">
+                              未分類
+                            </option>
+
+                            <option value="全景">
+                              全景
+                            </option>
+
+                            <option value="境界標アップ">
+                              境界標アップ
+                            </option>
+
+                            <option value="接面道路">
+                              接面道路
+                            </option>
+
+                            <option value="周辺状況">
+                              周辺状況
+                            </option>
+
+                            <option value="図面・資料">
+                              図面・資料
+                            </option>
+
+                            <option value="その他">
+                              その他
+                            </option>
+                          </select>
+
+                          <button
+                            className="photo-delete-button"
+                            onClick={() =>
+                              handleDeletePhoto(
+                                photo
+                              )
+                            }
+                          >
+                            削除
+                          </button>
+                        </div>
                       </div>
                     )
                   }
