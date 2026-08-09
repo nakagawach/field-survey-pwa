@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react'
 import type { ChangeEvent } from 'react'
 
-import './App.css';
+import './App.css'
 
-import type { BoundaryPhoto, BoundaryPoint, SurveyProject } from './types';
+import type {
+  BoundaryPhoto,
+  BoundaryPoint,
+  SurveyProject,
+} from './types'
 
 import {
   deleteBoundaryPoint,
@@ -15,17 +19,17 @@ import {
   saveBoundaryPoint,
   savePhoto,
   saveProject,
-} from './db';
+} from './db'
 
 type Screen =
   | 'projectList'
   | 'projectEdit'
   | 'projectDetail'
   | 'boundaryEdit'
-  | 'boundaryDetail';
+  | 'boundaryDetail'
 
 const createEmptyProject = (): SurveyProject => {
-  const now = new Date().toISOString();
+  const now = new Date().toISOString()
 
   return {
     id: crypto.randomUUID(),
@@ -38,14 +42,14 @@ const createEmptyProject = (): SurveyProject => {
     memo: '',
     createdAt: now,
     updatedAt: now,
-  };
-};
+  }
+}
 
 const createEmptyBoundaryPoint = (
   projectId: string,
   number: number
 ): BoundaryPoint => {
-  const now = new Date().toISOString();
+  const now = new Date().toISOString()
 
   return {
     id: crypto.randomUUID(),
@@ -53,257 +57,501 @@ const createEmptyBoundaryPoint = (
     name: `P${number}`,
     markerType: '',
     condition: '',
+    positionMemo: '',
     memo: '',
     createdAt: now,
     updatedAt: now,
-  };
-};
+  }
+}
 
 function App() {
-  const [screen, setScreen] = useState<Screen>('projectList');
+  const [screen, setScreen] =
+    useState<Screen>('projectList')
 
-  const [projects, setProjects] = useState<SurveyProject[]>([]);
+  const [projects, setProjects] =
+    useState<SurveyProject[]>([])
 
-  const [selectedProject, setSelectedProject] = useState<SurveyProject | null>(
-    null
-  );
+  const [selectedProject, setSelectedProject] =
+    useState<SurveyProject | null>(null)
 
-  const [editingProject, setEditingProject] = useState<SurveyProject | null>(
-    null
-  );
+  const [editingProject, setEditingProject] =
+    useState<SurveyProject | null>(null)
 
-  const [boundaryPoints, setBoundaryPoints] = useState<BoundaryPoint[]>([]);
+  const [boundaryPoints, setBoundaryPoints] =
+    useState<BoundaryPoint[]>([])
 
-  const [selectedBoundaryPoint, setSelectedBoundaryPoint] =
-    useState<BoundaryPoint | null>(null);
+  const [
+    selectedBoundaryPoint,
+    setSelectedBoundaryPoint,
+  ] = useState<BoundaryPoint | null>(null)
 
-  const [editingBoundaryPoint, setEditingBoundaryPoint] =
-    useState<BoundaryPoint | null>(null);
+  const [
+    editingBoundaryPoint,
+    setEditingBoundaryPoint,
+  ] = useState<BoundaryPoint | null>(null)
 
-  const [photos, setPhotos] = useState<BoundaryPhoto[]>([]);
+  const [photos, setPhotos] =
+    useState<BoundaryPhoto[]>([])
 
-  const [photoCounts, setPhotoCounts] = useState<Record<string, number>>({});
+  const [photoCounts, setPhotoCounts] =
+    useState<Record<string, number>>({})
+
+  const [locationLoading, setLocationLoading] =
+    useState(false)
 
   const loadProjects = async () => {
-    const data = await getProjects();
-    setProjects(data);
-  };
+    const data = await getProjects()
+    setProjects(data)
+  }
 
-  const loadBoundaryPoints = async (projectId: string) => {
-    const data = await getBoundaryPointsByProjectId(projectId);
+  const loadBoundaryPoints = async (
+    projectId: string
+  ) => {
+    const data =
+      await getBoundaryPointsByProjectId(projectId)
 
-    setBoundaryPoints(data);
+    setBoundaryPoints(data)
 
-    const counts: Record<string, number> = {};
+    const counts: Record<string, number> = {}
 
     for (const point of data) {
-      const pointPhotos = await getPhotosByBoundaryPointId(point.id);
+      const pointPhotos =
+        await getPhotosByBoundaryPointId(point.id)
 
-      counts[point.id] = pointPhotos.length;
+      counts[point.id] = pointPhotos.length
     }
 
-    setPhotoCounts(counts);
-  };
+    setPhotoCounts(counts)
+  }
 
-  const loadPhotos = async (boundaryPointId: string) => {
-    const data = await getPhotosByBoundaryPointId(boundaryPointId);
+  const loadPhotos = async (
+    boundaryPointId: string
+  ) => {
+    const data =
+      await getPhotosByBoundaryPointId(
+        boundaryPointId
+      )
 
-    setPhotos(data);
-  };
+    setPhotos(data)
+  }
 
   useEffect(() => {
-    loadProjects();
-  }, []);
+    loadProjects()
+  }, [])
+
+  /*
+   * 案件
+   */
 
   const handleNewProject = () => {
-    setEditingProject(createEmptyProject());
-    setScreen('projectEdit');
-  };
+    setSelectedProject(null)
+    setEditingProject(createEmptyProject())
+    setScreen('projectEdit')
+  }
 
-  const handleEditProject = (project: SurveyProject) => {
+  const handleEditProject = (
+    project: SurveyProject
+  ) => {
     setEditingProject({
       ...project,
-    });
+    })
 
-    setScreen('projectEdit');
-  };
+    setScreen('projectEdit')
+  }
 
   const handleSaveProject = async () => {
     if (!editingProject) {
-      return;
+      return
     }
 
     if (!editingProject.title.trim()) {
-      alert('案件名を入力してください');
-      return;
+      alert('案件名を入力してください')
+      return
     }
 
     const projectToSave: SurveyProject = {
       ...editingProject,
       updatedAt: new Date().toISOString(),
-    };
-
-    await saveProject(projectToSave);
-
-    setEditingProject(null);
-
-    await loadProjects();
-
-    if (selectedProject?.id === projectToSave.id) {
-      setSelectedProject(projectToSave);
-      setScreen('projectDetail');
-    } else {
-      setScreen('projectList');
     }
-  };
 
-  const handleDeleteProject = async (project: SurveyProject) => {
+    await saveProject(projectToSave)
+
+    await loadProjects()
+
+    if (
+      selectedProject?.id === projectToSave.id
+    ) {
+      setSelectedProject(projectToSave)
+      setEditingProject(null)
+      setScreen('projectDetail')
+    } else {
+      setEditingProject(null)
+      setScreen('projectList')
+    }
+  }
+
+  const handleDeleteProject = async (
+    project: SurveyProject
+  ) => {
     const ok = window.confirm(
       `「${project.title}」を削除しますか？\n境界点と写真も削除されます。`
-    );
+    )
 
     if (!ok) {
-      return;
+      return
     }
 
-    await deleteProject(project.id);
+    await deleteProject(project.id)
+    await loadProjects()
+  }
 
-    await loadProjects();
-  };
+  const handleOpenProject = async (
+    project: SurveyProject
+  ) => {
+    setSelectedProject(project)
 
-  const handleOpenProject = async (project: SurveyProject) => {
-    setSelectedProject(project);
+    await loadBoundaryPoints(project.id)
 
-    await loadBoundaryPoints(project.id);
+    setScreen('projectDetail')
+  }
 
-    setScreen('projectDetail');
-  };
+  /*
+   * 案件GPS
+   */
+
+  const handleCaptureProjectLocation = () => {
+    if (!selectedProject) {
+      return
+    }
+
+    if (!navigator.geolocation) {
+      alert(
+        'この端末では位置情報を利用できません。'
+      )
+      return
+    }
+
+    setLocationLoading(true)
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const updatedProject: SurveyProject = {
+          ...selectedProject,
+
+          latitude:
+            position.coords.latitude,
+
+          longitude:
+            position.coords.longitude,
+
+          accuracy:
+            position.coords.accuracy,
+
+          locationCapturedAt:
+            new Date().toISOString(),
+
+          updatedAt:
+            new Date().toISOString(),
+        }
+
+        try {
+          await saveProject(updatedProject)
+
+          setSelectedProject(
+            updatedProject
+          )
+
+          await loadProjects()
+        } finally {
+          setLocationLoading(false)
+        }
+      },
+
+      (error) => {
+        setLocationLoading(false)
+
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            alert(
+              '位置情報の利用が許可されていません。\nブラウザのサイト設定から位置情報を許可してください。'
+            )
+            break
+
+          case error.POSITION_UNAVAILABLE:
+            alert(
+              '現在地を取得できませんでした。'
+            )
+            break
+
+          case error.TIMEOUT:
+            alert(
+              '現在地の取得がタイムアウトしました。'
+            )
+            break
+
+          default:
+            alert(
+              '位置情報の取得に失敗しました。'
+            )
+        }
+      },
+
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      }
+    )
+  }
+
+  const handleOpenGoogleMaps = () => {
+    if (
+      selectedProject?.latitude === undefined ||
+      selectedProject?.longitude === undefined
+    ) {
+      return
+    }
+
+    const latitude =
+      selectedProject.latitude
+
+    const longitude =
+      selectedProject.longitude
+
+    const url =
+      `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
+
+    window.open(
+      url,
+      '_blank',
+      'noopener,noreferrer'
+    )
+  }
+
+  /*
+   * 境界点
+   */
 
   const handleNewBoundaryPoint = () => {
     if (!selectedProject) {
-      return;
+      return
     }
 
-    const point = createEmptyBoundaryPoint(
-      selectedProject.id,
-      boundaryPoints.length + 1
-    );
+    const point =
+      createEmptyBoundaryPoint(
+        selectedProject.id,
+        boundaryPoints.length + 1
+      )
 
-    setEditingBoundaryPoint(point);
+    setEditingBoundaryPoint(point)
 
-    setScreen('boundaryEdit');
-  };
+    setScreen('boundaryEdit')
+  }
 
-  const handleEditBoundaryPoint = (point: BoundaryPoint) => {
+  const handleEditBoundaryPoint = (
+    point: BoundaryPoint
+  ) => {
     setEditingBoundaryPoint({
       ...point,
-    });
 
-    setScreen('boundaryEdit');
-  };
+      // 古いデータでも壊れないように
+      positionMemo:
+        point.positionMemo ?? '',
+    })
 
-  const handleSaveBoundaryPoint = async () => {
-    if (!editingBoundaryPoint || !selectedProject) {
-      return;
+    setScreen('boundaryEdit')
+  }
+
+  const handleSaveBoundaryPoint =
+    async () => {
+      if (
+        !editingBoundaryPoint ||
+        !selectedProject
+      ) {
+        return
+      }
+
+      if (
+        !editingBoundaryPoint.name.trim()
+      ) {
+        alert(
+          '境界点名を入力してください'
+        )
+
+        return
+      }
+
+      const pointToSave: BoundaryPoint = {
+        ...editingBoundaryPoint,
+
+        positionMemo:
+          editingBoundaryPoint.positionMemo ??
+          '',
+
+        updatedAt:
+          new Date().toISOString(),
+      }
+
+      await saveBoundaryPoint(
+        pointToSave
+      )
+
+      await loadBoundaryPoints(
+        selectedProject.id
+      )
+
+      if (
+        selectedBoundaryPoint?.id ===
+        pointToSave.id
+      ) {
+        setSelectedBoundaryPoint(
+          pointToSave
+        )
+
+        setEditingBoundaryPoint(null)
+
+        setScreen(
+          'boundaryDetail'
+        )
+
+        return
+      }
+
+      setEditingBoundaryPoint(null)
+
+      setScreen('projectDetail')
     }
 
-    if (!editingBoundaryPoint.name.trim()) {
-      alert('境界点名を入力してください');
-      return;
+  const handleDeleteBoundaryPoint =
+    async (point: BoundaryPoint) => {
+      if (!selectedProject) {
+        return
+      }
+
+      const ok = window.confirm(
+        `「${point.name}」を削除しますか？\n写真も削除されます。`
+      )
+
+      if (!ok) {
+        return
+      }
+
+      await deleteBoundaryPoint(
+        point.id
+      )
+
+      await loadBoundaryPoints(
+        selectedProject.id
+      )
     }
 
-    const pointToSave: BoundaryPoint = {
-      ...editingBoundaryPoint,
-      updatedAt: new Date().toISOString(),
-    };
+  const handleOpenBoundaryPoint =
+    async (point: BoundaryPoint) => {
+      setSelectedBoundaryPoint({
+        ...point,
 
-    await saveBoundaryPoint(pointToSave);
+        positionMemo:
+          point.positionMemo ?? '',
+      })
 
-    setEditingBoundaryPoint(null);
+      await loadPhotos(point.id)
 
-    await loadBoundaryPoints(selectedProject.id);
-
-    setScreen('projectDetail');
-  };
-
-  const handleDeleteBoundaryPoint = async (point: BoundaryPoint) => {
-    if (!selectedProject) {
-      return;
+      setScreen('boundaryDetail')
     }
 
-    const ok = window.confirm(
-      `「${point.name}」を削除しますか？\n写真も削除されます。`
-    );
+  /*
+   * 写真
+   */
 
-    if (!ok) {
-      return;
+  const handlePhotoSelected = async (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    if (
+      !selectedProject ||
+      !selectedBoundaryPoint
+    ) {
+      return
     }
 
-    await deleteBoundaryPoint(point.id);
-
-    await loadBoundaryPoints(selectedProject.id);
-  };
-
-  const handleOpenBoundaryPoint = async (point: BoundaryPoint) => {
-    setSelectedBoundaryPoint(point);
-
-    await loadPhotos(point.id);
-
-    setScreen('boundaryDetail');
-  };
-
-  const handlePhotoSelected = async (event: ChangeEvent<HTMLInputElement>) => {
-    if (!selectedProject || !selectedBoundaryPoint) {
-      return;
-    }
-
-    const files = event.target.files;
+    const files = event.target.files
 
     if (!files || files.length === 0) {
-      return;
+      return
     }
 
-    for (const file of Array.from(files)) {
+    for (
+      const file of Array.from(files)
+    ) {
       const photo: BoundaryPhoto = {
         id: crypto.randomUUID(),
-        projectId: selectedProject.id,
-        boundaryPointId: selectedBoundaryPoint.id,
+
+        projectId:
+          selectedProject.id,
+
+        boundaryPointId:
+          selectedBoundaryPoint.id,
+
         fileName: file.name,
         fileType: file.type,
         fileSize: file.size,
+
         blob: file,
-        createdAt: new Date().toISOString(),
-      };
 
-      await savePhoto(photo);
+        createdAt:
+          new Date().toISOString(),
+      }
+
+      await savePhoto(photo)
     }
 
-    event.target.value = '';
+    event.target.value = ''
 
-    await loadPhotos(selectedBoundaryPoint.id);
+    await loadPhotos(
+      selectedBoundaryPoint.id
+    )
 
-    await loadBoundaryPoints(selectedProject.id);
-  };
+    await loadBoundaryPoints(
+      selectedProject.id
+    )
+  }
 
-  const handleDeletePhoto = async (photo: BoundaryPhoto) => {
-    if (!selectedBoundaryPoint || !selectedProject) {
-      return;
+  const handleDeletePhoto = async (
+    photo: BoundaryPhoto
+  ) => {
+    if (
+      !selectedBoundaryPoint ||
+      !selectedProject
+    ) {
+      return
     }
 
-    const ok = window.confirm('この写真を削除しますか？');
+    const ok = window.confirm(
+      'この写真を削除しますか？'
+    )
 
     if (!ok) {
-      return;
+      return
     }
 
-    await deletePhoto(photo.id);
+    await deletePhoto(photo.id)
 
-    await loadPhotos(selectedBoundaryPoint.id);
+    await loadPhotos(
+      selectedBoundaryPoint.id
+    )
 
-    await loadBoundaryPoints(selectedProject.id);
-  };
+    await loadBoundaryPoints(
+      selectedProject.id
+    )
+  }
 
-  if (screen === 'projectEdit' && editingProject) {
+  /*
+   * 案件編集
+   */
+
+  if (
+    screen === 'projectEdit' &&
+    editingProject
+  ) {
     return (
       <div className="app">
         <header className="header">
@@ -311,9 +559,13 @@ function App() {
             className="back-button"
             onClick={() => {
               if (selectedProject) {
-                setScreen('projectDetail');
+                setScreen(
+                  'projectDetail'
+                )
               } else {
-                setScreen('projectList');
+                setScreen(
+                  'projectList'
+                )
               }
             }}
           >
@@ -328,11 +580,14 @@ function App() {
             案件名
             <input
               type="text"
-              value={editingProject.title}
+              value={
+                editingProject.title
+              }
               onChange={(e) =>
                 setEditingProject({
                   ...editingProject,
-                  title: e.target.value,
+                  title:
+                    e.target.value,
                 })
               }
             />
@@ -342,11 +597,14 @@ function App() {
             所在
             <input
               type="text"
-              value={editingProject.location}
+              value={
+                editingProject.location
+              }
               onChange={(e) =>
                 setEditingProject({
                   ...editingProject,
-                  location: e.target.value,
+                  location:
+                    e.target.value,
                 })
               }
             />
@@ -356,11 +614,14 @@ function App() {
             地番
             <input
               type="text"
-              value={editingProject.lotNumber}
+              value={
+                editingProject.lotNumber
+              }
               onChange={(e) =>
                 setEditingProject({
                   ...editingProject,
-                  lotNumber: e.target.value,
+                  lotNumber:
+                    e.target.value,
                 })
               }
             />
@@ -370,11 +631,14 @@ function App() {
             調査日
             <input
               type="date"
-              value={editingProject.surveyDate}
+              value={
+                editingProject.surveyDate
+              }
               onChange={(e) =>
                 setEditingProject({
                   ...editingProject,
-                  surveyDate: e.target.value,
+                  surveyDate:
+                    e.target.value,
                 })
               }
             />
@@ -383,68 +647,126 @@ function App() {
           <label>
             現況地目
             <select
-              value={editingProject.landCategory}
+              value={
+                editingProject.landCategory
+              }
               onChange={(e) =>
                 setEditingProject({
                   ...editingProject,
-                  landCategory: e.target.value,
+                  landCategory:
+                    e.target.value,
                 })
               }
             >
-              <option value="">選択してください</option>
-              <option value="宅地">宅地</option>
-              <option value="田">田</option>
-              <option value="畑">畑</option>
-              <option value="山林">山林</option>
-              <option value="雑種地">雑種地</option>
-              <option value="道路">道路</option>
-              <option value="その他">その他</option>
+              <option value="">
+                選択してください
+              </option>
+
+              <option value="宅地">
+                宅地
+              </option>
+
+              <option value="田">
+                田
+              </option>
+
+              <option value="畑">
+                畑
+              </option>
+
+              <option value="山林">
+                山林
+              </option>
+
+              <option value="雑種地">
+                雑種地
+              </option>
+
+              <option value="道路">
+                道路
+              </option>
+
+              <option value="その他">
+                その他
+              </option>
             </select>
           </label>
 
           <label className="checkbox-row">
             <input
               type="checkbox"
-              checked={editingProject.boundaryChecked}
+              checked={
+                editingProject.boundaryChecked
+              }
               onChange={(e) =>
                 setEditingProject({
                   ...editingProject,
-                  boundaryChecked: e.target.checked,
+                  boundaryChecked:
+                    e.target.checked,
                 })
               }
             />
+
             境界標確認済み
           </label>
 
           <label>
             現地メモ
             <textarea
-              value={editingProject.memo}
+              value={
+                editingProject.memo
+              }
               onChange={(e) =>
                 setEditingProject({
                   ...editingProject,
-                  memo: e.target.value,
+                  memo:
+                    e.target.value,
                 })
               }
               rows={6}
             />
           </label>
 
-          <button className="save-button" onClick={handleSaveProject}>
+          <button
+            className="save-button"
+            onClick={
+              handleSaveProject
+            }
+          >
             保存
           </button>
         </main>
       </div>
-    );
+    )
   }
 
-  if (screen === 'boundaryEdit' && editingBoundaryPoint) {
+  /*
+   * 境界点編集
+   */
+
+  if (
+    screen === 'boundaryEdit' &&
+    editingBoundaryPoint
+  ) {
     return (
       <div className="app">
         <header className="header">
           <button
             className="back-button"
-            onClick={() => setScreen('projectDetail')}
+            onClick={() => {
+              if (
+                selectedBoundaryPoint?.id ===
+                editingBoundaryPoint.id
+              ) {
+                setScreen(
+                  'boundaryDetail'
+                )
+              } else {
+                setScreen(
+                  'projectDetail'
+                )
+              }
+            }}
           >
             ←
           </button>
@@ -457,11 +779,14 @@ function App() {
             境界点名
             <input
               type="text"
-              value={editingBoundaryPoint.name}
+              value={
+                editingBoundaryPoint.name
+              }
               onChange={(e) =>
                 setEditingBoundaryPoint({
                   ...editingBoundaryPoint,
-                  name: e.target.value,
+                  name:
+                    e.target.value,
                 })
               }
             />
@@ -470,77 +795,165 @@ function App() {
           <label>
             境界標の種類
             <select
-              value={editingBoundaryPoint.markerType}
+              value={
+                editingBoundaryPoint
+                  .markerType
+              }
               onChange={(e) =>
                 setEditingBoundaryPoint({
                   ...editingBoundaryPoint,
-                  markerType: e.target.value,
+                  markerType:
+                    e.target.value,
                 })
               }
             >
-              <option value="">選択してください</option>
-              <option value="コンクリート杭">コンクリート杭</option>
-              <option value="金属標">金属標</option>
-              <option value="金属鋲">金属鋲</option>
-              <option value="プラスチック杭">プラスチック杭</option>
-              <option value="刻印">刻印</option>
-              <option value="境界標なし">境界標なし</option>
-              <option value="その他">その他</option>
+              <option value="">
+                選択してください
+              </option>
+
+              <option value="コンクリート杭">
+                コンクリート杭
+              </option>
+
+              <option value="金属標">
+                金属標
+              </option>
+
+              <option value="金属鋲">
+                金属鋲
+              </option>
+
+              <option value="プラスチック杭">
+                プラスチック杭
+              </option>
+
+              <option value="刻印">
+                刻印
+              </option>
+
+              <option value="境界標なし">
+                境界標なし
+              </option>
+
+              <option value="その他">
+                その他
+              </option>
             </select>
           </label>
 
           <label>
             状態
             <select
-              value={editingBoundaryPoint.condition}
+              value={
+                editingBoundaryPoint
+                  .condition
+              }
               onChange={(e) =>
                 setEditingBoundaryPoint({
                   ...editingBoundaryPoint,
-                  condition: e.target.value,
+                  condition:
+                    e.target.value,
                 })
               }
             >
-              <option value="">選択してください</option>
-              <option value="良好">良好</option>
-              <option value="傾きあり">傾きあり</option>
-              <option value="摩耗あり">摩耗あり</option>
-              <option value="破損">破損</option>
-              <option value="不明">不明</option>
+              <option value="">
+                選択してください
+              </option>
+
+              <option value="良好">
+                良好
+              </option>
+
+              <option value="傾きあり">
+                傾きあり
+              </option>
+
+              <option value="摩耗あり">
+                摩耗あり
+              </option>
+
+              <option value="破損">
+                破損
+              </option>
+
+              <option value="不明">
+                不明
+              </option>
             </select>
+          </label>
+
+          <label>
+            位置関係メモ
+            <input
+              type="text"
+              value={
+                editingBoundaryPoint
+                  .positionMemo ?? ''
+              }
+              onChange={(e) =>
+                setEditingBoundaryPoint({
+                  ...editingBoundaryPoint,
+                  positionMemo:
+                    e.target.value,
+                })
+              }
+              placeholder="例：北西角・道路側・ブロック塀角付近"
+            />
           </label>
 
           <label>
             メモ
             <textarea
-              value={editingBoundaryPoint.memo}
+              value={
+                editingBoundaryPoint.memo
+              }
               onChange={(e) =>
                 setEditingBoundaryPoint({
                   ...editingBoundaryPoint,
-                  memo: e.target.value,
+                  memo:
+                    e.target.value,
                 })
               }
               rows={6}
             />
           </label>
 
-          <button className="save-button" onClick={handleSaveBoundaryPoint}>
+          <button
+            className="save-button"
+            onClick={
+              handleSaveBoundaryPoint
+            }
+          >
             保存
           </button>
         </main>
       </div>
-    );
+    )
   }
 
-  if (screen === 'boundaryDetail' && selectedBoundaryPoint) {
+  /*
+   * 境界点詳細
+   */
+
+  if (
+    screen === 'boundaryDetail' &&
+    selectedBoundaryPoint
+  ) {
     return (
       <div className="app">
         <header className="header">
           <button
             className="back-button"
             onClick={() => {
-              setSelectedBoundaryPoint(null);
-              setPhotos([]);
-              setScreen('projectDetail');
+              setSelectedBoundaryPoint(
+                null
+              )
+
+              setPhotos([])
+
+              setScreen(
+                'projectDetail'
+              )
             }}
           >
             ←
@@ -553,14 +966,26 @@ function App() {
           <section className="detail-card">
             <div className="detail-header">
               <div>
-                <h2>{selectedBoundaryPoint.name}</h2>
+                <h2>
+                  {
+                    selectedBoundaryPoint.name
+                  }
+                </h2>
 
-                <p>{selectedBoundaryPoint.markerType || '境界標未入力'}</p>
+                <p>
+                  {selectedBoundaryPoint
+                    .markerType ||
+                    '境界標未入力'}
+                </p>
               </div>
 
               <button
                 className="small-button"
-                onClick={() => handleEditBoundaryPoint(selectedBoundaryPoint)}
+                onClick={() =>
+                  handleEditBoundaryPoint(
+                    selectedBoundaryPoint
+                  )
+                }
               >
                 編集
               </button>
@@ -568,20 +993,57 @@ function App() {
 
             <div className="detail-grid">
               <div>
-                <span className="detail-label">種類</span>
-                <strong>{selectedBoundaryPoint.markerType || '未入力'}</strong>
+                <span className="detail-label">
+                  種類
+                </span>
+
+                <strong>
+                  {selectedBoundaryPoint
+                    .markerType ||
+                    '未入力'}
+                </strong>
               </div>
 
               <div>
-                <span className="detail-label">状態</span>
-                <strong>{selectedBoundaryPoint.condition || '未入力'}</strong>
+                <span className="detail-label">
+                  状態
+                </span>
+
+                <strong>
+                  {selectedBoundaryPoint
+                    .condition ||
+                    '未入力'}
+                </strong>
               </div>
             </div>
 
+            {selectedBoundaryPoint
+              .positionMemo && (
+                <div className="project-memo">
+                  <span className="detail-label">
+                    位置関係
+                  </span>
+
+                  <p>
+                    {
+                      selectedBoundaryPoint
+                        .positionMemo
+                    }
+                  </p>
+                </div>
+              )}
+
             {selectedBoundaryPoint.memo && (
               <div className="project-memo">
-                <span className="detail-label">メモ</span>
-                <p>{selectedBoundaryPoint.memo}</p>
+                <span className="detail-label">
+                  メモ
+                </span>
+
+                <p>
+                  {
+                    selectedBoundaryPoint.memo
+                  }
+                </p>
               </div>
             )}
           </section>
@@ -591,70 +1053,114 @@ function App() {
               <div>
                 <h2>写真</h2>
 
-                <span className="count-text">{photos.length}枚</span>
+                <span className="count-text">
+                  {photos.length}枚
+                </span>
               </div>
 
               <label className="small-button photo-add-button">
                 ＋ 写真追加
+
                 <input
                   className="hidden-file-input"
                   type="file"
                   accept="image/*"
                   capture="environment"
                   multiple
-                  onChange={handlePhotoSelected}
+                  onChange={
+                    handlePhotoSelected
+                  }
                 />
               </label>
             </div>
 
             {photos.length === 0 ? (
               <div className="boundary-empty">
-                <div className="boundary-empty-icon">📷</div>
+                <div className="boundary-empty-icon">
+                  📷
+                </div>
 
-                <p>写真がありません</p>
+                <p>
+                  写真がありません
+                </p>
 
-                <span>「＋ 写真追加」から撮影してください</span>
+                <span>
+                  「＋ 写真追加」から撮影してください
+                </span>
               </div>
             ) : (
               <div className="photo-grid">
-                {photos.map((photo) => {
-                  const imageUrl = URL.createObjectURL(photo.blob);
+                {photos.map(
+                  (photo) => {
+                    const imageUrl =
+                      URL.createObjectURL(
+                        photo.blob
+                      )
 
-                  return (
-                    <div className="photo-card" key={photo.id}>
-                      <img
-                        src={imageUrl}
-                        alt={photo.fileName}
-                        onLoad={() => URL.revokeObjectURL(imageUrl)}
-                      />
-
-                      <button
-                        className="photo-delete-button"
-                        onClick={() => handleDeletePhoto(photo)}
+                    return (
+                      <div
+                        className="photo-card"
+                        key={
+                          photo.id
+                        }
                       >
-                        削除
-                      </button>
-                    </div>
-                  );
-                })}
+                        <img
+                          src={imageUrl}
+                          alt={
+                            photo.fileName
+                          }
+                          onLoad={() =>
+                            URL.revokeObjectURL(
+                              imageUrl
+                            )
+                          }
+                        />
+
+                        <button
+                          className="photo-delete-button"
+                          onClick={() =>
+                            handleDeletePhoto(
+                              photo
+                            )
+                          }
+                        >
+                          削除
+                        </button>
+                      </div>
+                    )
+                  }
+                )}
               </div>
             )}
           </section>
         </main>
       </div>
-    );
+    )
   }
 
-  if (screen === 'projectDetail' && selectedProject) {
+  /*
+   * 案件詳細
+   */
+
+  if (
+    screen === 'projectDetail' &&
+    selectedProject
+  ) {
+    const hasLocation =
+      selectedProject.latitude !==
+      undefined &&
+      selectedProject.longitude !==
+      undefined
+
     return (
       <div className="app">
         <header className="header">
           <button
             className="back-button"
             onClick={() => {
-              setSelectedProject(null);
-              setBoundaryPoints([]);
-              setScreen('projectList');
+              setSelectedProject(null)
+              setBoundaryPoints([])
+              setScreen('projectList')
             }}
           >
             ←
@@ -667,14 +1173,25 @@ function App() {
           <section className="detail-card">
             <div className="detail-header">
               <div>
-                <h2>{selectedProject.title}</h2>
+                <h2>
+                  {
+                    selectedProject.title
+                  }
+                </h2>
 
-                <p>{selectedProject.location || '所在地未入力'}</p>
+                <p>
+                  {selectedProject.location ||
+                    '所在地未入力'}
+                </p>
               </div>
 
               <button
                 className="small-button"
-                onClick={() => handleEditProject(selectedProject)}
+                onClick={() =>
+                  handleEditProject(
+                    selectedProject
+                  )
+                }
               >
                 編集
               </button>
@@ -682,34 +1199,169 @@ function App() {
 
             <div className="detail-grid">
               <div>
-                <span className="detail-label">地番</span>
-                <strong>{selectedProject.lotNumber || '未入力'}</strong>
-              </div>
+                <span className="detail-label">
+                  地番
+                </span>
 
-              <div>
-                <span className="detail-label">調査日</span>
-                <strong>{selectedProject.surveyDate}</strong>
-              </div>
-
-              <div>
-                <span className="detail-label">現況地目</span>
-                <strong>{selectedProject.landCategory || '未入力'}</strong>
-              </div>
-
-              <div>
-                <span className="detail-label">境界標確認</span>
                 <strong>
-                  {selectedProject.boundaryChecked ? '確認済み' : '未確認'}
+                  {selectedProject.lotNumber ||
+                    '未入力'}
+                </strong>
+              </div>
+
+              <div>
+                <span className="detail-label">
+                  調査日
+                </span>
+
+                <strong>
+                  {
+                    selectedProject.surveyDate
+                  }
+                </strong>
+              </div>
+
+              <div>
+                <span className="detail-label">
+                  現況地目
+                </span>
+
+                <strong>
+                  {selectedProject.landCategory ||
+                    '未入力'}
+                </strong>
+              </div>
+
+              <div>
+                <span className="detail-label">
+                  境界標確認
+                </span>
+
+                <strong>
+                  {selectedProject.boundaryChecked
+                    ? '確認済み'
+                    : '未確認'}
                 </strong>
               </div>
             </div>
 
             {selectedProject.memo && (
               <div className="project-memo">
-                <span className="detail-label">現地メモ</span>
-                <p>{selectedProject.memo}</p>
+                <span className="detail-label">
+                  現地メモ
+                </span>
+
+                <p>
+                  {
+                    selectedProject.memo
+                  }
+                </p>
               </div>
             )}
+          </section>
+
+          <section className="location-section">
+            <div className="section-title-row">
+              <div>
+                <h2>現場位置</h2>
+              </div>
+            </div>
+
+            <div className="location-card">
+              {hasLocation ? (
+                <>
+                  <div className="location-grid">
+                    <div>
+                      <span className="detail-label">
+                        緯度
+                      </span>
+
+                      <strong>
+                        {selectedProject.latitude?.toFixed(
+                          6
+                        )}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span className="detail-label">
+                        経度
+                      </span>
+
+                      <strong>
+                        {selectedProject.longitude?.toFixed(
+                          6
+                        )}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div className="location-accuracy">
+                    GPS精度：約
+                    {Math.round(
+                      selectedProject.accuracy ??
+                      0
+                    )}
+                    m
+                  </div>
+
+                  <div className="location-actions">
+                    <button
+                      className="location-button"
+                      onClick={
+                        handleCaptureProjectLocation
+                      }
+                      disabled={
+                        locationLoading
+                      }
+                    >
+                      {locationLoading
+                        ? '取得中...'
+                        : '📍 現在地を再取得'}
+                    </button>
+
+                    <button
+                      className="maps-button"
+                      onClick={
+                        handleOpenGoogleMaps
+                      }
+                    >
+                      Googleマップで開く
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="location-empty">
+                    <div className="location-icon">
+                      📍
+                    </div>
+
+                    <p>
+                      現場位置は未取得です
+                    </p>
+
+                    <span>
+                      案件単位でGPS位置を保存します
+                    </span>
+                  </div>
+
+                  <button
+                    className="location-button full-width-button"
+                    onClick={
+                      handleCaptureProjectLocation
+                    }
+                    disabled={
+                      locationLoading
+                    }
+                  >
+                    {locationLoading
+                      ? '現在地を取得中...'
+                      : '📍 現場位置を取得'}
+                  </button>
+                </>
+              )}
+            </div>
           </section>
 
           <section className="boundary-section">
@@ -717,69 +1369,123 @@ function App() {
               <div>
                 <h2>境界点</h2>
 
-                <span className="count-text">{boundaryPoints.length}点</span>
+                <span className="count-text">
+                  {boundaryPoints.length}
+                  点
+                </span>
               </div>
 
-              <button className="small-button" onClick={handleNewBoundaryPoint}>
+              <button
+                className="small-button"
+                onClick={
+                  handleNewBoundaryPoint
+                }
+              >
                 ＋ 追加
               </button>
             </div>
 
-            {boundaryPoints.length === 0 ? (
+            {boundaryPoints.length ===
+              0 ? (
               <div className="boundary-empty">
-                <div className="boundary-empty-icon">📍</div>
+                <div className="boundary-empty-icon">
+                  📍
+                </div>
 
-                <p>境界点がありません</p>
+                <p>
+                  境界点がありません
+                </p>
 
-                <span>「＋ 追加」から登録してください</span>
+                <span>
+                  「＋ 追加」から登録してください
+                </span>
               </div>
             ) : (
               <div className="boundary-list">
-                {boundaryPoints.map((point) => (
-                  <div className="boundary-card" key={point.id}>
-                    <button
-                      className="boundary-main"
-                      onClick={() => handleOpenBoundaryPoint(point)}
+                {boundaryPoints.map(
+                  (point) => (
+                    <div
+                      className="boundary-card"
+                      key={
+                        point.id
+                      }
                     >
-                      <div className="boundary-name">{point.name}</div>
+                      <button
+                        className="boundary-main"
+                        onClick={() =>
+                          handleOpenBoundaryPoint(
+                            point
+                          )
+                        }
+                      >
+                        <div className="boundary-name">
+                          {
+                            point.name
+                          }
+                        </div>
 
-                      <div className="boundary-info">
-                        <span>
-                          種類：
-                          {point.markerType || '未入力'}
-                        </span>
+                        <div className="boundary-info">
+                          <span>
+                            種類：
+                            {point.markerType ||
+                              '未入力'}
+                          </span>
 
-                        <span>
-                          状態：
-                          {point.condition || '未入力'}
-                        </span>
+                          <span>
+                            状態：
+                            {point.condition ||
+                              '未入力'}
+                          </span>
 
-                        <span>
-                          写真：
-                          {photoCounts[point.id] ?? 0}枚
-                        </span>
-                      </div>
-                    </button>
+                          <span>
+                            位置：
+                            {point.positionMemo ||
+                              '未入力'}
+                          </span>
 
-                    <button
-                      className="boundary-delete-button"
-                      onClick={() => handleDeleteBoundaryPoint(point)}
-                    >
-                      削除
-                    </button>
-                  </div>
-                ))}
+                          <span>
+                            写真：
+                            {photoCounts[
+                              point.id
+                            ] ?? 0}
+                            枚
+                          </span>
+                        </div>
+                      </button>
+
+                      <button
+                        className="boundary-delete-button"
+                        onClick={() =>
+                          handleDeleteBoundaryPoint(
+                            point
+                          )
+                        }
+                      >
+                        削除
+                      </button>
+                    </div>
+                  )
+                )}
               </div>
             )}
           </section>
         </main>
 
-        <button className="floating-button" onClick={handleNewBoundaryPoint}>
+        <button
+          className="floating-button"
+          onClick={
+            handleNewBoundaryPoint
+          }
+        >
           ＋
         </button>
       </div>
-    );
+    )
   }
+
+  /*
+   * 案件一覧
+   */
 
   return (
     <div className="app">
@@ -790,52 +1496,94 @@ function App() {
       <main className="project-container">
         {projects.length === 0 ? (
           <div className="empty">
-            <div className="empty-icon">📍</div>
+            <div className="empty-icon">
+              📍
+            </div>
 
-            <p>案件がありません</p>
+            <p>
+              案件がありません
+            </p>
 
-            <small>右下の＋から案件を登録してください</small>
+            <small>
+              右下の＋から案件を登録してください
+            </small>
           </div>
         ) : (
           <div className="project-list">
-            {projects.map((project) => (
-              <div className="project-card" key={project.id}>
-                <button
-                  className="project-main"
-                  onClick={() => handleOpenProject(project)}
+            {projects.map(
+              (project) => (
+                <div
+                  className="project-card"
+                  key={
+                    project.id
+                  }
                 >
-                  <strong>{project.title}</strong>
+                  <button
+                    className="project-main"
+                    onClick={() =>
+                      handleOpenProject(
+                        project
+                      )
+                    }
+                  >
+                    <strong>
+                      {project.title}
+                    </strong>
 
-                  <span>{project.location || '所在地未入力'}</span>
+                    <span>
+                      {project.location ||
+                        '所在地未入力'}
+                    </span>
 
-                  <span>
-                    地番：
-                    {project.lotNumber || '未入力'}
-                  </span>
+                    <span>
+                      地番：
+                      {project.lotNumber ||
+                        '未入力'}
+                    </span>
 
-                  <span>
-                    調査日：
-                    {project.surveyDate}
-                  </span>
-                </button>
+                    <span>
+                      調査日：
+                      {
+                        project.surveyDate
+                      }
+                    </span>
 
-                <button
-                  className="delete-button"
-                  onClick={() => handleDeleteProject(project)}
-                >
-                  削除
-                </button>
-              </div>
-            ))}
+                    <span>
+                      GPS：
+                      {project.latitude !==
+                        undefined
+                        ? '取得済み'
+                        : '未取得'}
+                    </span>
+                  </button>
+
+                  <button
+                    className="delete-button"
+                    onClick={() =>
+                      handleDeleteProject(
+                        project
+                      )
+                    }
+                  >
+                    削除
+                  </button>
+                </div>
+              )
+            )}
           </div>
         )}
       </main>
 
-      <button className="floating-button" onClick={handleNewProject}>
+      <button
+        className="floating-button"
+        onClick={
+          handleNewProject
+        }
+      >
         ＋
       </button>
     </div>
-  );
+  )
 }
 
-export default App;
+export default App

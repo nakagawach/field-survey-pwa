@@ -1,14 +1,60 @@
-* {
-  box-sizing: border-box;
+/*
+ * ========================================
+ * 基本設定
+ * Androidダークモードによる文字色変化を防止
+ * ========================================
+ */
+
+:root {
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+
+  color: #222222;
+  background: #f5f6f8;
+
+  color-scheme: light;
+}
+
+html {
+  margin: 0;
+  padding: 0;
+
+  background: #f5f6f8;
+
+  color: #222222;
+
+  color-scheme: light;
 }
 
 body {
   margin: 0;
 
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  min-width: 320px;
+  min-height: 100vh;
 
   background: #f5f6f8;
-  color: #222;
+
+  color: #222222;
+
+  -webkit-text-size-adjust: 100%;
+}
+
+#root {
+  min-height: 100vh;
+
+  background: #f5f6f8;
+
+  color: #222222;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 button,
@@ -18,13 +64,54 @@ textarea {
   font: inherit;
 }
 
+/*
+ * Androidやブラウザのダークモードで
+ * 入力文字が白くなるのを防ぐ
+ */
+
+input,
+select,
+textarea {
+  color: #222222;
+
+  background-color: #ffffff;
+
+  -webkit-text-fill-color: #222222;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #888888;
+
+  -webkit-text-fill-color: #888888;
+  opacity: 1;
+}
+
 button {
+  color: #222222;
+
   cursor: pointer;
 }
 
+/*
+ * ========================================
+ * アプリ全体
+ * ========================================
+ */
+
 .app {
   min-height: 100vh;
+
+  background: #f5f6f8;
+
+  color: #222222;
 }
+
+/*
+ * ========================================
+ * ヘッダー
+ * ========================================
+ */
 
 .header {
   min-height: 60px;
@@ -34,9 +121,11 @@ button {
 
   padding: 0 16px;
 
-  background: white;
+  background: #ffffff;
 
-  border-bottom: 1px solid #ddd;
+  color: #111111;
+
+  border-bottom: 1px solid #dddddd;
 
   position: sticky;
   top: 0;
@@ -46,7 +135,11 @@ button {
 
 .header h1 {
   margin: 0;
+
+  color: #111111;
+
   font-size: 20px;
+  font-weight: 700;
 }
 
 .back-button {
@@ -54,12 +147,20 @@ button {
 
   background: transparent;
 
+  color: #111111;
+
   font-size: 28px;
 
   margin-right: 12px;
 
   padding: 4px 8px 4px 0;
 }
+
+/*
+ * ========================================
+ * 共通コンテナ
+ * ========================================
+ */
 
 .project-container,
 .form-container {
@@ -70,12 +171,18 @@ button {
   padding: 20px 16px 100px;
 }
 
+/*
+ * ========================================
+ * 空状態
+ * ========================================
+ */
+
 .empty {
   margin-top: 100px;
 
   text-align: center;
 
-  color: #777;
+  color: #777777;
 }
 
 .empty-icon {
@@ -88,7 +195,19 @@ button {
   font-size: 18px;
 
   margin-bottom: 8px;
+
+  color: #444444;
 }
+
+.empty small {
+  color: #777777;
+}
+
+/*
+ * ========================================
+ * 案件一覧
+ * ========================================
+ */
 
 .project-list {
   display: flex;
@@ -99,11 +218,11 @@ button {
 }
 
 .project-card {
-  background: white;
+  background: #ffffff;
 
   border-radius: 12px;
 
-  border: 1px solid #ddd;
+  border: 1px solid #dddddd;
 
   overflow: hidden;
 }
@@ -123,7 +242,9 @@ button {
 
   border: none;
 
-  background: white;
+  background: #ffffff;
+
+  color: #222222;
 }
 
 .project-main:active {
@@ -131,13 +252,15 @@ button {
 }
 
 .project-main strong {
+  color: #111111;
+
   font-size: 18px;
 }
 
 .project-main span {
   font-size: 14px;
 
-  color: #666;
+  color: #666666;
 }
 
 .delete-button {
@@ -147,12 +270,18 @@ button {
 
   border: none;
 
-  border-top: 1px solid #eee;
+  border-top: 1px solid #eeeeee;
 
-  background: white;
+  background: #ffffff;
 
-  color: #d22;
+  color: #d52222;
 }
+
+/*
+ * ========================================
+ * 入力画面
+ * ========================================
+ */
 
 .form-container {
   display: flex;
@@ -169,6 +298,8 @@ button {
 
   gap: 8px;
 
+  color: #222222;
+
   font-weight: 600;
 }
 
@@ -179,11 +310,21 @@ textarea {
 
   padding: 12px;
 
-  border: 1px solid #ccc;
+  border: 1px solid #cccccc;
 
   border-radius: 8px;
 
-  background: white;
+  background: #ffffff;
+
+  color: #222222;
+
+  outline: none;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #1976d2;
 }
 
 textarea {
@@ -212,12 +353,20 @@ textarea {
 
   background: #1976d2;
 
-  color: white;
+  color: #ffffff;
+
+  -webkit-text-fill-color: #ffffff;
 
   font-weight: bold;
 
   font-size: 16px;
 }
+
+/*
+ * ========================================
+ * 右下＋ボタン
+ * ========================================
+ */
 
 .floating-button {
   position: fixed;
@@ -233,21 +382,30 @@ textarea {
 
   background: #1976d2;
 
-  color: white;
+  color: #ffffff;
+
+  -webkit-text-fill-color: #ffffff;
 
   font-size: 32px;
 
   line-height: 1;
 
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.25);
 }
 
-/* 案件詳細 */
+/*
+ * ========================================
+ * 案件・境界点詳細
+ * ========================================
+ */
 
 .detail-card {
-  background: white;
+  background: #ffffff;
 
-  border: 1px solid #ddd;
+  color: #222222;
+
+  border: 1px solid #dddddd;
 
   border-radius: 14px;
 
@@ -269,13 +427,15 @@ textarea {
 .detail-header h2 {
   margin: 0 0 6px;
 
+  color: #111111;
+
   font-size: 20px;
 }
 
 .detail-header p {
   margin: 0;
 
-  color: #666;
+  color: #666666;
 
   font-size: 14px;
 }
@@ -293,18 +453,21 @@ textarea {
 
   color: #1267b9;
 
+  -webkit-text-fill-color: #1267b9;
+
   font-weight: 600;
 }
 
 .detail-grid {
   display: grid;
 
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
 
   gap: 16px;
 }
 
-.detail-grid > div {
+.detail-grid>div {
   display: flex;
 
   flex-direction: column;
@@ -315,17 +478,19 @@ textarea {
 .detail-label {
   font-size: 12px;
 
-  color: #777;
+  color: #777777;
 }
 
 .detail-grid strong {
+  color: #111111;
+
   font-size: 15px;
 }
 
 .project-memo {
   margin-top: 20px;
 
-  border-top: 1px solid #eee;
+  border-top: 1px solid #eeeeee;
 
   padding-top: 16px;
 }
@@ -333,16 +498,18 @@ textarea {
 .project-memo p {
   margin: 6px 0 0;
 
+  color: #222222;
+
   white-space: pre-wrap;
 
   line-height: 1.6;
 }
 
-/* 境界点 */
-
-.boundary-section {
-  margin-top: 24px;
-}
+/*
+ * ========================================
+ * セクション見出し
+ * ========================================
+ */
 
 .section-title-row {
   display: flex;
@@ -356,7 +523,7 @@ textarea {
   margin-bottom: 12px;
 }
 
-.section-title-row > div {
+.section-title-row>div {
   display: flex;
 
   align-items: center;
@@ -367,27 +534,39 @@ textarea {
 .section-title-row h2 {
   margin: 0;
 
+  color: #111111;
+
   font-size: 20px;
 }
 
 .count-text {
   font-size: 13px;
 
-  color: #777;
+  color: #777777;
+}
+
+/*
+ * ========================================
+ * 境界点
+ * ========================================
+ */
+
+.boundary-section {
+  margin-top: 24px;
 }
 
 .boundary-empty {
-  background: white;
+  background: #ffffff;
 
-  border: 1px dashed #bbb;
+  color: #777777;
+
+  border: 1px dashed #bbbbbb;
 
   border-radius: 14px;
 
   padding: 36px 16px;
 
   text-align: center;
-
-  color: #777;
 }
 
 .boundary-empty-icon {
@@ -399,11 +578,13 @@ textarea {
 
   font-weight: 600;
 
-  color: #444;
+  color: #444444;
 }
 
 .boundary-empty span {
   font-size: 13px;
+
+  color: #777777;
 }
 
 .boundary-list {
@@ -419,9 +600,11 @@ textarea {
 
   overflow: hidden;
 
-  background: white;
+  background: #ffffff;
 
-  border: 1px solid #ddd;
+  color: #222222;
+
+  border: 1px solid #dddddd;
 
   border-radius: 12px;
 }
@@ -431,7 +614,9 @@ textarea {
 
   border: none;
 
-  background: white;
+  background: #ffffff;
+
+  color: #222222;
 
   padding: 14px 16px;
 
@@ -479,36 +664,165 @@ textarea {
 .boundary-info span {
   font-size: 14px;
 
-  color: #666;
+  color: #666666;
 }
 
 .boundary-delete-button {
   border: none;
 
-  border-left: 1px solid #eee;
+  border-left: 1px solid #eeeeee;
 
-  background: white;
+  background: #ffffff;
 
-  color: #d22;
+  color: #d52222;
+
+  -webkit-text-fill-color: #d52222;
 
   padding: 0 14px;
 }
 
-@media (max-width: 480px) {
-  .detail-grid {
-    grid-template-columns: 1fr 1fr;
-  }
+/*
+ * ========================================
+ * GPS位置情報
+ * ========================================
+ */
 
-  .boundary-main {
-    gap: 12px;
-  }
-
-  .boundary-delete-button {
-    padding: 0 12px;
-  }
+.location-section {
+  margin-top: 24px;
 }
 
-/* 写真 */
+.location-card {
+  background: #ffffff;
+
+  color: #222222;
+
+  border: 1px solid #dddddd;
+
+  border-radius: 14px;
+
+  padding: 18px;
+}
+
+.location-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
+  gap: 16px;
+}
+
+.location-grid>div {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 5px;
+}
+
+.location-grid strong {
+  color: #111111;
+
+  font-size: 16px;
+}
+
+.location-accuracy {
+  margin-top: 16px;
+
+  padding-top: 14px;
+
+  border-top: 1px solid #eeeeee;
+
+  color: #666666;
+
+  font-size: 13px;
+}
+
+.location-actions {
+  display: grid;
+
+  grid-template-columns:
+    1fr 1fr;
+
+  gap: 10px;
+
+  margin-top: 16px;
+}
+
+.location-button,
+.maps-button {
+  min-height: 46px;
+
+  border-radius: 9px;
+
+  padding: 10px 12px;
+
+  font-weight: 600;
+}
+
+.location-button {
+  border: 1px solid #1976d2;
+
+  background: #ffffff;
+
+  color: #1976d2;
+
+  -webkit-text-fill-color: #1976d2;
+}
+
+.maps-button {
+  border: none;
+
+  background: #1976d2;
+
+  color: #ffffff;
+
+  -webkit-text-fill-color: #ffffff;
+}
+
+.location-button:disabled {
+  opacity: 0.55;
+
+  cursor: default;
+}
+
+.full-width-button {
+  width: 100%;
+
+  margin-top: 18px;
+}
+
+.location-empty {
+  text-align: center;
+
+  padding: 10px 10px 4px;
+
+  color: #777777;
+}
+
+.location-icon {
+  font-size: 38px;
+}
+
+.location-empty p {
+  margin: 8px 0 5px;
+
+  color: #444444;
+
+  font-weight: 600;
+}
+
+.location-empty span {
+  color: #777777;
+
+  font-size: 13px;
+}
+
+/*
+ * ========================================
+ * 写真
+ * ========================================
+ */
 
 .photo-section {
   margin-top: 24px;
@@ -516,7 +830,9 @@ textarea {
 
 .photo-add-button {
   display: inline-flex;
+
   align-items: center;
+
   justify-content: center;
 
   cursor: pointer;
@@ -529,7 +845,8 @@ textarea {
 .photo-grid {
   display: grid;
 
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
 
   gap: 12px;
 }
@@ -537,9 +854,9 @@ textarea {
 .photo-card {
   overflow: hidden;
 
-  background: white;
+  background: #ffffff;
 
-  border: 1px solid #ddd;
+  border: 1px solid #dddddd;
 
   border-radius: 12px;
 }
@@ -548,11 +865,12 @@ textarea {
   display: block;
 
   width: 100%;
+
   aspect-ratio: 1 / 1;
 
   object-fit: cover;
 
-  background: #eee;
+  background: #eeeeee;
 }
 
 .photo-delete-button {
@@ -562,15 +880,116 @@ textarea {
 
   border: none;
 
-  border-top: 1px solid #eee;
+  border-top: 1px solid #eeeeee;
 
-  background: white;
+  background: #ffffff;
 
-  color: #d22;
+  color: #d52222;
+
+  -webkit-text-fill-color: #d52222;
 }
+
+/*
+ * ========================================
+ * スマホ
+ * ========================================
+ */
+
+@media (max-width: 480px) {
+  .detail-grid {
+    grid-template-columns:
+      1fr 1fr;
+  }
+
+  .boundary-main {
+    gap: 12px;
+  }
+
+  .boundary-delete-button {
+    padding: 0 12px;
+  }
+
+  .location-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+/*
+ * PC・タブレット
+ */
 
 @media (min-width: 600px) {
   .photo-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr));
   }
+}
+
+/*
+ * ========================================
+ * OSがダークモードでも
+ * このアプリはライトテーマを維持
+ * ========================================
+ */
+
+@media (prefers-color-scheme: dark) {
+
+  :root,
+  html,
+  body,
+  #root,
+  .app {
+    background: #f5f6f8;
+
+    color: #222222;
+  }
+
+  .header,
+  .project-card,
+  .project-main,
+  .detail-card,
+  .boundary-card,
+  .boundary-main,
+  .boundary-empty,
+  .location-card,
+  .photo-card,
+  .delete-button,
+  .boundary-delete-button,
+  .photo-delete-button {
+    background: #ffffff;
+
+    color: #222222;
+  }
+
+  input,
+  select,
+  textarea {
+    background: #ffffff;
+
+    color: #222222;
+
+    -webkit-text-fill-color: #222222;
+  }
+
+  .header h1,
+  .detail-header h2,
+  .section-title-row h2,
+  .project-main strong,
+  .detail-grid strong,
+  .location-grid strong {
+    color: #111111;
+  }
+}
+
+.boundary-info {
+  min-width: 0;
+}
+
+.boundary-info span {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.project-main span {
+  overflow-wrap: anywhere;
 }
