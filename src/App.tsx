@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { ChangeEvent } from 'react'
 
 import './App.css'
+import PhotoViewer from './PhotoViewer'
 
 import type {
   BoundaryPhoto,
@@ -34,6 +35,15 @@ type Screen =
   | 'projectDetail'
   | 'boundaryEdit'
   | 'boundaryDetail'
+
+const PHOTO_CATEGORIES = [
+  '全景',
+  '境界標アップ',
+  '接面道路',
+  '周辺状況',
+  '図面・資料',
+  'その他',
+] as const
 
 const createEmptyProject = (): SurveyProject => {
   const now = new Date().toISOString()
@@ -99,6 +109,9 @@ function App() {
 
   const [photos, setPhotos] =
     useState<BoundaryPhoto[]>([])
+
+  const [selectedPhotoIndex, setSelectedPhotoIndex] =
+    useState<number | null>(null)
 
   const [photoCounts, setPhotoCounts] =
     useState<Record<string, number>>({})
@@ -584,7 +597,7 @@ function App() {
       !selectedBoundaryPoint ||
       !selectedProject
     ) {
-      return
+      return false
     }
 
     const ok = window.confirm(
@@ -592,7 +605,7 @@ function App() {
     )
 
     if (!ok) {
-      return
+      return false
     }
 
     await deletePhoto(photo.id)
@@ -604,6 +617,8 @@ function App() {
     await loadBoundaryPoints(
       selectedProject.id
     )
+
+    return true
   }
 
   const handleChangePhotoCategory = async (
@@ -1025,6 +1040,8 @@ function App() {
           <button
             className="back-button"
             onClick={() => {
+              setSelectedPhotoIndex(null)
+
               setSelectedBoundaryPoint(
                 null
               )
@@ -1145,14 +1162,7 @@ function App() {
               </div>
 
               <div className="photo-category-chips">
-                {[
-                  '全景',
-                  '境界標アップ',
-                  '接面道路',
-                  '周辺状況',
-                  '図面・資料',
-                  'その他',
-                ].map((category) => (
+                {PHOTO_CATEGORIES.map((category) => (
                   <button
                     key={category}
                     type="button"
@@ -1218,26 +1228,39 @@ function App() {
                           photo.id
                         }
                       >
-                        <div className="photo-image-wrapper">
-                          <img
-                            src={
-                              imageUrl
-                            }
-                            alt={
-                              photo.fileName
-                            }
-                            onLoad={() =>
-                              URL.revokeObjectURL(
-                                imageUrl
+                        <button
+                          type="button"
+                          className="photo-image-button"
+                          aria-label={`${photo.fileName}を全画面で表示`}
+                          onClick={() =>
+                            setSelectedPhotoIndex(
+                              photos.findIndex(
+                                (item) => item.id === photo.id
                               )
-                            }
-                          />
+                            )
+                          }
+                        >
+                          <div className="photo-image-wrapper">
+                            <img
+                              src={
+                                imageUrl
+                              }
+                              alt={
+                                photo.fileName
+                              }
+                              onLoad={() =>
+                                URL.revokeObjectURL(
+                                  imageUrl
+                                )
+                              }
+                            />
 
-                          <div className="photo-category-badge">
-                            {photo.category ||
-                              '未分類'}
+                            <div className="photo-category-badge">
+                              {photo.category ||
+                                '未分類'}
+                            </div>
                           </div>
-                        </div>
+                        </button>
 
                         <div className="photo-card-controls">
                           <select
@@ -1300,6 +1323,19 @@ function App() {
             )}
           </section>
         </main>
+
+        {selectedPhotoIndex !== null && (
+          <PhotoViewer
+            photos={photos}
+            activeIndex={selectedPhotoIndex}
+            boundaryPointName={selectedBoundaryPoint.name}
+            categories={PHOTO_CATEGORIES}
+            onClose={() => setSelectedPhotoIndex(null)}
+            onIndexChange={setSelectedPhotoIndex}
+            onDelete={handleDeletePhoto}
+            onCategoryChange={handleChangePhotoCategory}
+          />
+        )}
       </div>
     )
   }
