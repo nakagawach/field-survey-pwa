@@ -10,6 +10,13 @@ import type {
 } from './types'
 
 import {
+  calculateSurveyProgress,
+} from './surveyValidation'
+import type {
+  SurveyProgress,
+} from './surveyValidation'
+
+import {
   deleteBoundaryPoint,
   deletePhoto,
   deleteProject,
@@ -96,12 +103,44 @@ function App() {
   const [photoCounts, setPhotoCounts] =
     useState<Record<string, number>>({})
 
+  const [projectProgress, setProjectProgress] =
+    useState<Record<string, SurveyProgress>>({})
+
   const [locationLoading, setLocationLoading] =
     useState(false)
 
   const loadProjects = async () => {
     const data = await getProjects()
     setProjects(data)
+
+    const progressEntries = await Promise.all(
+      data.map(async (project) => {
+        const points =
+          await getBoundaryPointsByProjectId(project.id)
+        const counts: Record<string, number> = {}
+
+        await Promise.all(
+          points.map(async (point) => {
+            const pointPhotos =
+              await getPhotosByBoundaryPointId(point.id)
+            counts[point.id] = pointPhotos.length
+          })
+        )
+
+        return [
+          project.id,
+          calculateSurveyProgress(
+            project,
+            points,
+            counts
+          ),
+        ] as const
+      })
+    )
+
+    setProjectProgress(
+      Object.fromEntries(progressEntries)
+    )
   }
 
   const loadBoundaryPoints = async (
@@ -122,6 +161,23 @@ function App() {
     }
 
     setPhotoCounts(counts)
+
+    const project =
+      projects.find((item) => item.id === projectId) ??
+      (selectedProject?.id === projectId
+        ? selectedProject
+        : null)
+
+    if (project) {
+      setProjectProgress((current) => ({
+        ...current,
+        [projectId]: calculateSurveyProgress(
+          project,
+          data,
+          counts
+        ),
+      }))
+    }
   }
 
   const loadPhotos = async (
@@ -1262,6 +1318,14 @@ function App() {
       selectedProject.longitude !==
       undefined
 
+    const progress =
+      projectProgress[selectedProject.id] ??
+      calculateSurveyProgress(
+        selectedProject,
+        boundaryPoints,
+        photoCounts
+      )
+
     return (
       <div className="app">
         <header className="header">
@@ -1368,6 +1432,52 @@ function App() {
                 </p>
               </div>
             )}
+          </section>
+
+          <section className="progress-card">
+            <div className="progress-header">
+              <h2>調査進捗</h2>
+
+              <strong>
+                {progress.percentage === 100
+                  ? '調査完了'
+                  : `${progress.percentage}%`}
+              </strong>
+            </div>
+
+            <div
+              className="progress-track"
+              role="progressbar"
+              aria-label="調査進捗"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={progress.percentage}
+            >
+              <div
+                className="progress-bar"
+                style={{
+                  width: `${progress.percentage}%`,
+                }}
+              />
+            </div>
+
+            <ul className="progress-check-list">
+              {progress.checks.map((check) => (
+                <li
+                  key={check.id}
+                  className={
+                    check.complete
+                      ? 'progress-check complete'
+                      : 'progress-check incomplete'
+                  }
+                >
+                  <span aria-hidden="true">
+                    {check.complete ? '✓' : '!'}
+                  </span>
+                  <span>{check.message}</span>
+                </li>
+              ))}
+            </ul>
           </section>
 
           <section className="location-section">
@@ -1665,6 +1775,21 @@ function App() {
                         ? '取得済み'
                         : '未取得'}
                     </span>
+
+                    {projectProgress[
+                      project.id
+                    ] && (
+                      <span className="project-progress-label">
+                        調査進捗：
+                        {projectProgress[
+                          project.id
+                        ].percentage === 100
+                          ? '調査完了'
+                          : `${projectProgress[
+                              project.id
+                            ].percentage}%`}
+                      </span>
+                    )}
                   </button>
 
                   <button

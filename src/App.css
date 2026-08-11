@@ -263,6 +263,14 @@ button {
   color: #666666;
 }
 
+.project-main .project-progress-label {
+  margin-top: 4px;
+
+  color: #1267b9;
+
+  font-weight: 700;
+}
+
 .delete-button {
   width: 100%;
 
@@ -503,6 +511,118 @@ textarea {
   white-space: pre-wrap;
 
   line-height: 1.6;
+}
+
+/*
+ * ========================================
+ * 調査進捗
+ * ========================================
+ */
+
+.progress-card {
+  margin-top: 20px;
+
+  padding: 18px;
+
+  border: 1px solid #c9ddf2;
+  border-radius: 14px;
+
+  background: #ffffff;
+  color: #222222;
+}
+
+.progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 12px;
+}
+
+.progress-header h2 {
+  margin: 0;
+
+  color: #111111;
+
+  font-size: 18px;
+}
+
+.progress-header strong {
+  color: #1267b9;
+
+  font-size: 18px;
+}
+
+.progress-track {
+  height: 8px;
+
+  margin-top: 14px;
+
+  overflow: hidden;
+
+  border-radius: 999px;
+
+  background: #e6edf5;
+}
+
+.progress-bar {
+  height: 100%;
+
+  border-radius: inherit;
+
+  background: #1976d2;
+}
+
+.progress-check-list {
+  display: flex;
+  flex-direction: column;
+
+  gap: 10px;
+
+  margin: 16px 0 0;
+  padding: 0;
+
+  list-style: none;
+}
+
+.progress-check {
+  display: flex;
+  align-items: flex-start;
+
+  gap: 9px;
+
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.progress-check > span:first-child {
+  flex-shrink: 0;
+
+  width: 20px;
+  height: 20px;
+
+  border-radius: 50%;
+
+  text-align: center;
+  line-height: 20px;
+
+  font-weight: 700;
+}
+
+.progress-check.complete {
+  color: #23733c;
+}
+
+.progress-check.complete > span:first-child {
+  background: #e4f4e9;
+}
+
+.progress-check.incomplete {
+  color: #9a5a00;
+}
+
+.progress-check.incomplete > span:first-child {
+  background: #fff0d5;
 }
 
 /*
