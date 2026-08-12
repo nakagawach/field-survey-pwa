@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useState } from 'react'
 import type { ChangeEvent } from 'react'
 
 import './App.css'
@@ -44,6 +44,48 @@ const PHOTO_CATEGORIES = [
   '図面・資料',
   'その他',
 ] as const
+
+type PhotoThumbnailProps = {
+  photo: BoundaryPhoto
+  index: number
+  onOpen: (index: number) => void
+}
+
+const PhotoThumbnail = memo(function PhotoThumbnail({
+  photo,
+  index,
+  onOpen,
+}: PhotoThumbnailProps) {
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    const nextImageUrl = URL.createObjectURL(photo.blob)
+    setImageUrl(nextImageUrl)
+
+    return () => URL.revokeObjectURL(nextImageUrl)
+  }, [photo.blob])
+
+  return (
+    <button
+      type="button"
+      className="photo-image-button"
+      aria-label={`${photo.fileName}を全画面で表示`}
+      onClick={() => onOpen(index)}
+    >
+      <div className="photo-image-wrapper">
+        {imageUrl ? (
+          <img src={imageUrl} alt={photo.fileName} />
+        ) : (
+          <div className="photo-thumbnail-placeholder" aria-hidden="true" />
+        )}
+
+        <div className="photo-category-badge">
+          {photo.category || '未分類'}
+        </div>
+      </div>
+    </button>
+  )
+})
 
 const createEmptyProject = (): SurveyProject => {
   const now = new Date().toISOString()
@@ -109,6 +151,9 @@ function App() {
 
   const [photos, setPhotos] =
     useState<BoundaryPhoto[]>([])
+
+  const [capturedPhotoIds, setCapturedPhotoIds] =
+    useState<Set<string>>(() => new Set())
 
   const [selectedPhotoIndex, setSelectedPhotoIndex] =
     useState<number | null>(null)
@@ -547,25 +592,21 @@ function App() {
    * 写真
    */
 
-  const handlePhotoSelected = async (
-    event: ChangeEvent<HTMLInputElement>
-  ) => {
+  const saveSelectedPhotos = async (
+    files: FileList
+  ): Promise<BoundaryPhoto[]> => {
     if (
       !selectedProject ||
       !selectedBoundaryPoint
     ) {
-      return
+      return []
     }
 
-    const files = event.target.files
+    const savedPhotos: BoundaryPhoto[] = []
+    const failedFileNames: string[] = []
+    const createdAt = Date.now()
 
-    if (!files || files.length === 0) {
-      return
-    }
-
-    for (
-      const file of Array.from(files)
-    ) {
+    for (const [index, file] of Array.from(files).entries()) {
       const photo: BoundaryPhoto = {
         id: crypto.randomUUID(),
 
@@ -584,14 +625,16 @@ function App() {
 
         blob: file,
 
-        createdAt:
-          new Date().toISOString(),
+        createdAt: new Date(createdAt + index).toISOString(),
       }
 
-      await savePhoto(photo)
+      try {
+        await savePhoto(photo)
+        savedPhotos.push(photo)
+      } catch {
+        failedFileNames.push(file.name)
+      }
     }
-
-    event.target.value = ''
 
     await loadPhotos(
       selectedBoundaryPoint.id
@@ -600,6 +643,97 @@ function App() {
     await loadBoundaryPoints(
       selectedProject.id
     )
+
+    if (failedFileNames.length > 0) {
+      window.alert(
+        `${failedFileNames.length}枚の写真を保存できませんでした。\n${failedFileNames.join('\n')}`
+      )
+    }
+
+    return savedPhotos
+  }
+
+  const handlePhotoSelected = async (
+    event: ChangeEvent<HTMLInputElement>,
+    source: 'camera' | 'library'
+  ) => {
+    const input = event.currentTarget
+    const files = input.files
+
+    if (!files || files.length === 0) {
+      input.value = ''
+      return
+    }
+
+    try {
+      const savedPhotos = await saveSelectedPhotos(files)
+
+      if (source === 'camera' && savedPhotos.length > 0) {
+        setCapturedPhotoIds((current) => {
+          const next = new Set(current)
+          savedPhotos.forEach((photo) => next.add(photo.id))
+          return next
+        })
+      }
+    } catch {
+      window.alert('写真を保存できませんでした。もう一度お試しください。')
+    } finally {
+      input.value = ''
+    }
+  }
+
+  const handleSavePhotoToDevice = async (
+    photo: BoundaryPhoto
+  ) => {
+    const file = new File(
+      [photo.blob],
+      photo.fileName,
+      { type: photo.fileType || photo.blob.type || 'image/jpeg' }
+    )
+
+    let canShareFile = false
+
+    try {
+      canShareFile =
+        typeof navigator.share === 'function' &&
+        typeof navigator.canShare === 'function' &&
+        navigator.canShare({ files: [file] })
+    } catch {
+      canShareFile = false
+    }
+
+    if (canShareFile) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: photo.fileName,
+        })
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          window.alert('端末への保存用共有を開始できませんでした。')
+        }
+      }
+
+      return
+    }
+
+    let downloadUrl: string | null = null
+
+    try {
+      downloadUrl = URL.createObjectURL(photo.blob)
+      const link = document.createElement('a')
+      link.href = downloadUrl
+      link.download = photo.fileName
+      link.click()
+      link.remove()
+    } catch {
+      window.alert('このブラウザでは端末への保存を開始できませんでした。')
+    } finally {
+      if (downloadUrl) {
+        const urlToRevoke = downloadUrl
+        window.setTimeout(() => URL.revokeObjectURL(urlToRevoke), 0)
+      }
+    }
   }
 
   const handleDeletePhoto = async (
@@ -621,6 +755,12 @@ function App() {
     }
 
     await deletePhoto(photo.id)
+
+    setCapturedPhotoIds((current) => {
+      const next = new Set(current)
+      next.delete(photo.id)
+      return next
+    })
 
     await loadPhotos(
       selectedBoundaryPoint.id
@@ -1068,7 +1208,7 @@ function App() {
             ←
           </button>
 
-          <h1>境界点詳細</h1>
+          <h1>境界点詳細 {selectedBoundaryPoint.name}</h1>
         </header>
 
         <main className="project-container">
@@ -1170,7 +1310,7 @@ function App() {
 
             <div className="photo-category-box">
               <div className="photo-category-title">
-                撮影する写真の種類
+                追加する写真の種類
               </div>
 
               <div className="photo-category-chips">
@@ -1194,20 +1334,36 @@ function App() {
                 ))}
               </div>
 
-              <label className="photo-capture-button">
-                📷 {selectedPhotoCategory}を撮影
+              <div className="photo-add-actions">
+                <label className="photo-capture-button">
+                  📷 撮影
 
-                <input
-                  className="hidden-file-input"
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  multiple
-                  onChange={
-                    handlePhotoSelected
-                  }
-                />
-              </label>
+                  <input
+                    className="hidden-file-input"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    multiple
+                    onChange={(event) =>
+                      handlePhotoSelected(event, 'camera')
+                    }
+                  />
+                </label>
+
+                <label className="photo-library-button">
+                  🖼 写真から選択
+
+                  <input
+                    className="hidden-file-input"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(event) =>
+                      handlePhotoSelected(event, 'library')
+                    }
+                  />
+                </label>
+              </div>
             </div>
 
             {photos.length === 0 ? (
@@ -1221,18 +1377,13 @@ function App() {
                 </p>
 
                 <span>
-                  写真種別を選んで撮影してください
+                  写真種別を選んで撮影または追加してください
                 </span>
               </div>
             ) : (
               <div className="photo-grid">
                 {photos.map(
-                  (photo) => {
-                    const imageUrl =
-                      URL.createObjectURL(
-                        photo.blob
-                      )
-
+                  (photo, index) => {
                     return (
                       <div
                         className="photo-card"
@@ -1240,39 +1391,11 @@ function App() {
                           photo.id
                         }
                       >
-                        <button
-                          type="button"
-                          className="photo-image-button"
-                          aria-label={`${photo.fileName}を全画面で表示`}
-                          onClick={() =>
-                            setSelectedPhotoIndex(
-                              photos.findIndex(
-                                (item) => item.id === photo.id
-                              )
-                            )
-                          }
-                        >
-                          <div className="photo-image-wrapper">
-                            <img
-                              src={
-                                imageUrl
-                              }
-                              alt={
-                                photo.fileName
-                              }
-                              onLoad={() =>
-                                URL.revokeObjectURL(
-                                  imageUrl
-                                )
-                              }
-                            />
-
-                            <div className="photo-category-badge">
-                              {photo.category ||
-                                '未分類'}
-                            </div>
-                          </div>
-                        </button>
+                        <PhotoThumbnail
+                          photo={photo}
+                          index={index}
+                          onOpen={setSelectedPhotoIndex}
+                        />
 
                         <div className="photo-card-controls">
                           <select
@@ -1316,7 +1439,18 @@ function App() {
                             </option>
                           </select>
 
+                          {capturedPhotoIds.has(photo.id) && (
+                            <button
+                              type="button"
+                              className="photo-device-save-button"
+                              onClick={() => handleSavePhotoToDevice(photo)}
+                            >
+                              端末にも保存
+                            </button>
+                          )}
+
                           <button
+                            type="button"
                             className="photo-delete-button"
                             onClick={() =>
                               handleDeletePhoto(
