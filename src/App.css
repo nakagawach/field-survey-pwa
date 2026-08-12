@@ -981,6 +981,20 @@ textarea {
   border-radius: 12px;
 }
 
+.photo-image-button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.photo-image-button:focus-visible {
+  outline: 3px solid #1976d2;
+  outline-offset: -3px;
+}
+
 .photo-card img {
   display: block;
 
