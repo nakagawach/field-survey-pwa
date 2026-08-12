@@ -595,7 +595,7 @@ textarea {
   line-height: 1.5;
 }
 
-.progress-check > span:first-child {
+.progress-check>span:first-child {
   flex-shrink: 0;
 
   width: 20px;
@@ -613,7 +613,7 @@ textarea {
   color: #23733c;
 }
 
-.progress-check.complete > span:first-child {
+.progress-check.complete>span:first-child {
   background: #e4f4e9;
 }
 
@@ -621,7 +621,7 @@ textarea {
   color: #9a5a00;
 }
 
-.progress-check.incomplete > span:first-child {
+.progress-check.incomplete>span:first-child {
   background: #fff0d5;
 }
 
@@ -1152,7 +1152,7 @@ textarea {
  * ========================================
  */
 
- .photo-category-box {
+.photo-category-box {
   margin-bottom: 18px;
 
   padding: 16px;
@@ -1332,6 +1332,7 @@ textarea {
  */
 
 @media (prefers-color-scheme: dark) {
+
   .photo-category-box,
   .photo-category-chip,
   .photo-library-button,
@@ -1357,4 +1358,13 @@ textarea {
 
     -webkit-text-fill-color: #1267b9;
   }
+}
+
+/* Android Chrome: tap後のclick遅延を抑える */
+button,
+select,
+label,
+input,
+a {
+  touch-action: manipulation;
 }
