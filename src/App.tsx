@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import type { ChangeEvent } from 'react'
 
 import './App.css'
@@ -121,6 +121,18 @@ function App() {
 
   const [locationLoading, setLocationLoading] =
     useState(false)
+
+  // iOS Safari/PWA may preserve the previous SPA screen's scroll offset.
+  // Reset only entry/edit forms, before the new screen is painted.
+  useLayoutEffect(() => {
+    if (screen !== 'projectEdit' && screen !== 'boundaryEdit') {
+      return
+    }
+
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
+  }, [screen])
 
   const loadProjects = async () => {
     const data = await getProjects()
