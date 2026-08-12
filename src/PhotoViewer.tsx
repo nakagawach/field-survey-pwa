@@ -134,6 +134,9 @@ function PhotoViewer({
     renderTransforms()
   }
 
+  // Reset in the same pre-paint phase as the parent's index update. The incoming
+  // slide is already centered, so it never flashes back to the old position.
+  useLayoutEffect(resetTransform, [activeIndex])
   useEffect(() => {
     const nextUrls: Record<number, string> = {}
     const first = Math.max(0, activeIndex - 1)
@@ -160,7 +163,6 @@ function PhotoViewer({
       clearTap()
     }
   }, [])
-
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (modeRef.current === 'animating') return
@@ -550,7 +552,14 @@ function PhotoViewer({
         <button type="button" className="photo-viewer-delete" onClick={() => void handleDelete()}>削除</button>
       </footer>
     </div>
-  )
+    <footer className={`${controls} photo-viewer-footer`}>
+      <label className="photo-viewer-category"><span>写真種別</span><select value={photo.category || ''}
+        onChange={(event) => void onCategoryChange(photo, event.target.value)}>
+        <option value="">未分類</option>{categories.map((category) => <option key={category} value={category}>{category}</option>)}
+      </select></label>
+      <button type="button" className="photo-viewer-delete" onClick={() => void handleDelete()}>削除</button>
+    </footer>
+  </div>
 }
 
 export default PhotoViewer
