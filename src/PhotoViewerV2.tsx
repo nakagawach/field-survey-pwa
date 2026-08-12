@@ -154,11 +154,35 @@ function PhotoViewerV2({
     setCloseDragY(value)
   }
 
+  const releaseAllPointers = () => {
+    const stage = stageRef.current
+
+    if (stage) {
+      activePointersRef.current.forEach((_, pointerId) => {
+        try {
+          if (stage.hasPointerCapture(pointerId)) {
+            stage.releasePointerCapture(pointerId)
+          }
+        } catch {
+          // Androidなどでcapture解除に失敗してもclose処理は継続する
+        }
+      })
+    }
+
+    activePointersRef.current.clear()
+    primaryPointerIdRef.current = null
+    gestureModeRef.current = 'none'
+  }
+
   const finishClose = () => {
     clearAnimationTimer()
+    releaseAllPointers()
     setCloseAnimating(true)
     syncClose(window.innerHeight)
-    animationTimerRef.current = window.setTimeout(onClose, CLOSE_DURATION)
+
+    animationTimerRef.current = window.setTimeout(() => {
+      onClose()
+    }, CLOSE_DURATION)
   }
 
   const snapCloseBack = () => {
@@ -349,6 +373,13 @@ function PhotoViewerV2({
   }
 
   const endPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
+    try {
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      }
+    } catch {
+      // Pointer Capture未対応・解除済みでも継続
+    }
     const wasPrimary = event.pointerId === primaryPointerIdRef.current
     activePointersRef.current.delete(event.pointerId)
 
@@ -396,10 +427,8 @@ function PhotoViewerV2({
   }
 
   const handlePointerCancel = () => {
-    activePointersRef.current.clear()
-    primaryPointerIdRef.current = null
+    releaseAllPointers()
     lastTapRef.current = null
-    gestureModeRef.current = 'none'
     syncTrack(0)
     syncClose(0)
     setSlideAnimating(false)
@@ -431,6 +460,7 @@ function PhotoViewerV2({
         transition: closeAnimating
           ? `transform ${CLOSE_DURATION}ms ${SLIDE_EASING}, opacity ${CLOSE_DURATION}ms linear`
           : 'none',
+        pointerEvents: closeAnimating ? 'none' : 'auto',
       }}
       role="dialog"
       aria-modal="true"
