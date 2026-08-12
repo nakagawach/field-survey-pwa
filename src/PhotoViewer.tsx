@@ -6,12 +6,14 @@ import './PhotoViewer.css'
 import {
   DOUBLE_TAP_SCALE,
   MAX_SCALE,
+  canNavigatePhotos,
   chooseDragMode,
   clamp,
   getDistance,
   getDoubleTapScale,
   getMidpoint,
   getPanBounds,
+  getRequestedPhotoIndex,
   getSwipeIndex,
   isBaseScale,
   shouldDismiss,
@@ -51,11 +53,13 @@ function PhotoViewer({
   const photo = photos[activeIndex]
   const [urls, setUrls] = useState<Record<number, string>>({})
   const [controlsVisible, setControlsVisible] = useState(true)
+  const [isZoomed, setIsZoomed] = useState(false)
   const viewerRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
   const activeImageRef = useRef<HTMLImageElement>(null)
   const scaleRef = useRef(1)
+  const isZoomedRef = useRef(false)
   const panRef = useRef<Point>({ x: 0, y: 0 })
   const dragRef = useRef<Point>({ x: 0, y: 0 })
   const pointersRef = useRef(new Map<number, Point>())
@@ -124,6 +128,10 @@ function PhotoViewer({
     releaseCaptures()
     clearTap()
     scaleRef.current = 1
+    if (isZoomedRef.current) {
+      isZoomedRef.current = false
+      setIsZoomed(false)
+    }
     panRef.current = { x: 0, y: 0 }
     dragRef.current = { x: 0, y: 0 }
     pointersRef.current.clear()
@@ -132,6 +140,31 @@ function PhotoViewer({
     pendingIndexRef.current = null
     setTransitions('', '')
     renderTransforms()
+  }
+
+  const syncZoomedState = () => {
+    const nextIsZoomed = !canNavigatePhotos(scaleRef.current)
+    if (nextIsZoomed === isZoomedRef.current) return
+    isZoomedRef.current = nextIsZoomed
+    setIsZoomed(nextIsZoomed)
+  }
+
+  const closeViewer = () => {
+    resetGesture()
+    onClose()
+  }
+
+  const requestIndexChange = (nextIndex: number) => {
+    const requestedIndex = getRequestedPhotoIndex(
+      activeIndex,
+      photos.length,
+      nextIndex,
+      scaleRef.current
+    )
+    if (requestedIndex === null) return false
+    resetGesture()
+    onIndexChange(requestedIndex)
+    return true
   }
 
   useEffect(() => {
@@ -156,16 +189,22 @@ function PhotoViewer({
     return () => {
       document.body.style.overflow = previousOverflow
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
       releaseCaptures()
       clearTap()
+      pointersRef.current.clear()
+      modeRef.current = 'idle'
+      animationRef.current = null
+      pendingIndexRef.current = null
+      setTransitions('', '')
     }
   }, [])
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (modeRef.current === 'animating') return
-      if (event.key === 'Escape') onClose()
-      else if (event.key === 'ArrowLeft' && activeIndex > 0) onIndexChange(activeIndex - 1)
-      else if (event.key === 'ArrowRight' && activeIndex < photos.length - 1) onIndexChange(activeIndex + 1)
+      if (event.key === 'Escape') closeViewer()
+      else if (event.key === 'ArrowLeft') requestIndexChange(activeIndex - 1)
+      else if (event.key === 'ArrowRight') requestIndexChange(activeIndex + 1)
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
@@ -279,6 +318,7 @@ function PhotoViewer({
         y: midpoint.y - rect.top - stage.clientHeight / 2,
       }
       scaleRef.current = scale
+      syncZoomedState()
       panRef.current = constrainPan({
         x: centered.x - pinchStartRef.current.contentPoint.x * scale,
         y: centered.y - pinchStartRef.current.contentPoint.y * scale,
@@ -331,6 +371,7 @@ function PhotoViewer({
         y: centered.y * (1 - DOUBLE_TAP_SCALE),
       }, DOUBLE_TAP_SCALE)
     }
+    syncZoomedState()
     dragRef.current = { x: 0, y: 0 }
     scheduleRender()
   }
@@ -415,6 +456,7 @@ function PhotoViewer({
       } else {
         panRef.current = constrainPan(panRef.current, scaleRef.current)
       }
+      syncZoomedState()
       modeRef.current = 'idle'
       setTransitions('', IMAGE_TRANSITION)
       scheduleRender()
@@ -462,12 +504,11 @@ function PhotoViewer({
     const animation = animationRef.current
     animationRef.current = null
     if (animation === 'dismiss') {
-      modeRef.current = 'idle'
-      onClose()
+      closeViewer()
     } else if (animation === 'slide' && pendingIndexRef.current !== null) {
       const nextIndex = pendingIndexRef.current
       pendingIndexRef.current = null
-      onIndexChange(nextIndex)
+      requestIndexChange(nextIndex)
     } else if (animation === 'snapTrack') {
       modeRef.current = 'idle'
       setTransitions('', '')
@@ -482,8 +523,9 @@ function PhotoViewer({
 
   const handleDelete = async () => {
     if (!await onDelete(photo)) return
-    if (photos.length === 1) onClose()
-    else if (activeIndex === photos.length - 1) onIndexChange(activeIndex - 1)
+    if (photos.length === 1) closeViewer()
+    else if (!canNavigatePhotos(scaleRef.current)) closeViewer()
+    else if (activeIndex === photos.length - 1) requestIndexChange(activeIndex - 1)
   }
 
   const controlsClass = `photo-viewer-controls${controlsVisible ? ' is-visible' : ''}`
@@ -499,7 +541,7 @@ function PhotoViewer({
       tabIndex={-1}
     >
       <header className={`${controlsClass} photo-viewer-header`}>
-        <button type="button" className="photo-viewer-icon-button" aria-label="写真を閉じる" onClick={onClose}>×</button>
+        <button type="button" className="photo-viewer-icon-button" aria-label="写真を閉じる" onClick={closeViewer}>×</button>
         <strong className="photo-viewer-title">{boundaryPointName}</strong>
         <span className="photo-viewer-position" aria-live="polite">{activeIndex + 1} / {photos.length}</span>
       </header>
@@ -533,10 +575,12 @@ function PhotoViewer({
             </div>
           ))}
         </div>
-        <div className={`${controlsClass} photo-viewer-navigation`}>
-          <button type="button" className="photo-viewer-nav photo-viewer-nav-previous" aria-label="前の写真" disabled={activeIndex === 0} onClick={() => onIndexChange(activeIndex - 1)}>‹</button>
-          <button type="button" className="photo-viewer-nav photo-viewer-nav-next" aria-label="次の写真" disabled={activeIndex === photos.length - 1} onClick={() => onIndexChange(activeIndex + 1)}>›</button>
-        </div>
+        {!isZoomed && (
+          <div className={`${controlsClass} photo-viewer-navigation`}>
+            <button type="button" className="photo-viewer-nav photo-viewer-nav-previous" aria-label="前の写真" disabled={activeIndex === 0} onClick={() => requestIndexChange(activeIndex - 1)}>‹</button>
+            <button type="button" className="photo-viewer-nav photo-viewer-nav-next" aria-label="次の写真" disabled={activeIndex === photos.length - 1} onClick={() => requestIndexChange(activeIndex + 1)}>›</button>
+          </div>
+        )}
       </div>
       <footer className={`${controlsClass} photo-viewer-footer`}>
         <label className="photo-viewer-category">
