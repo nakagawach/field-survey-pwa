@@ -138,6 +138,8 @@ function PhotoViewerV2({
   }
 
   const resetZoom = () => {
+    scaleRef.current = MIN_SCALE
+    imageOffsetRef.current = { x: 0, y: 0 }
     setScale(MIN_SCALE)
     setImageOffset({ x: 0, y: 0 })
   }
@@ -232,6 +234,8 @@ function PhotoViewerV2({
         },
         DOUBLE_TAP_SCALE
       )
+      scaleRef.current = DOUBLE_TAP_SCALE
+      imageOffsetRef.current = nextOffset
       setScale(DOUBLE_TAP_SCALE)
       setImageOffset(nextOffset)
     }
@@ -277,6 +281,7 @@ function PhotoViewerV2({
       distance(lastTap.point, point) <= DOUBLE_TAP_DISTANCE
     ) {
       lastTapRef.current = null
+      primaryPointerIdRef.current = event.pointerId
       applyDoubleTap(point)
       return
     }
@@ -373,13 +378,18 @@ function PhotoViewerV2({
     } else if (mode === 'close') {
       if (closeDragYRef.current >= CLOSE_THRESHOLD) finishClose()
       else snapCloseBack()
-    } else if (mode === 'pending' && movement < GESTURE_LOCK) {
+    } else if (
+      (mode === 'pending' || mode === 'pan') &&
+      movement < GESTURE_LOCK
+    ) {
       lastTapRef.current = {
         time: Date.now(),
         point: { x: event.clientX, y: event.clientY },
       }
       gestureModeRef.current = 'none'
-    } else if (mode !== 'doubletap') {
+    } else if (mode === 'doubletap') {
+      gestureModeRef.current = 'none'
+    } else {
       gestureModeRef.current = 'none'
     }
     primaryPointerIdRef.current = null

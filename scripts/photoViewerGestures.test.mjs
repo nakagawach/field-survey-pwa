@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
 import {
   canNavigatePhotos,
@@ -69,3 +70,115 @@ assert.equal(
 )
 
 console.log('PhotoViewer gesture assertions passed (A-Q)')
+
+const LOCK = 14
+const DOUBLE_TAP_MS = 360
+const DOUBLE_TAP_DISTANCE = 44
+
+class DoubleTapSequence {
+  scale = 1
+  offset = { x: 0, y: 0 }
+  mode = 'none'
+  lastTap = null
+  start = null
+
+  pointerDown(point, time) {
+    if (
+      this.lastTap &&
+      time - this.lastTap.time <= DOUBLE_TAP_MS &&
+      Math.hypot(
+        point.x - this.lastTap.point.x,
+        point.y - this.lastTap.point.y
+      ) <= DOUBLE_TAP_DISTANCE
+    ) {
+      this.lastTap = null
+      this.mode = 'doubletap'
+      if (this.scale > 1.01) {
+        this.scale = 1
+        this.offset = { x: 0, y: 0 }
+      } else {
+        this.scale = 2.5
+      }
+      this.start = point
+      return
+    }
+
+    this.start = point
+    this.mode = this.scale > 1.01 ? 'pan' : 'pending'
+  }
+
+  pointerUp(point, time) {
+    const movement = Math.hypot(point.x - this.start.x, point.y - this.start.y)
+    if ((this.mode === 'pending' || this.mode === 'pan') && movement < LOCK) {
+      this.lastTap = { point, time }
+      this.mode = 'none'
+    } else if (this.mode === 'doubletap') {
+      this.mode = 'none'
+    }
+  }
+
+  tap(point, downTime, upTime = downTime + 30) {
+    this.pointerDown(point, downTime)
+    this.pointerUp(point, upTime)
+  }
+}
+
+const doubleTap = (sequence, startTime, point = { x: 100, y: 120 }) => {
+  sequence.tap(point, startTime)
+  sequence.tap(point, startTime + 120)
+}
+
+const sequence = new DoubleTapSequence()
+doubleTap(sequence, 1_000)
+assert.equal(sequence.scale, 2.5, 'DT1: pointer event sequence zooms to 2.5')
+assert.equal(sequence.mode, 'none', 'DT1: double tap releases gesture mode')
+
+doubleTap(sequence, 2_000)
+assert.equal(sequence.scale, 1, 'DT2: a second double tap returns to 1')
+assert.deepEqual(sequence.offset, { x: 0, y: 0 }, 'DT3: reset clears both offsets')
+
+sequence.scale = 2.5
+sequence.pointerDown({ x: 80, y: 80 }, 3_000)
+sequence.pointerUp({ x: 80, y: 80 }, 3_030)
+assert.equal(sequence.mode, 'none', 'DT4: a zoomed tap is retained instead of locking pan')
+sequence.pointerDown({ x: 80, y: 80 }, 3_120)
+assert.equal(sequence.mode, 'doubletap', 'DT4: double tap wins before zoomed pan')
+sequence.pointerUp({ x: 80, y: 80 }, 3_150)
+assert.equal(sequence.scale, 1, 'DT5: reset enables base-scale swipe again')
+
+sequence.scale = 2.5
+sequence.offset = { x: 35, y: -24 }
+doubleTap(sequence, 4_000, { x: 140, y: 160 })
+assert.equal(sequence.scale, 1, 'DT6: double tap after pan resets scale')
+assert.deepEqual(sequence.offset, { x: 0, y: 0 }, 'DT6: double tap after pan resets offset')
+
+for (let index = 0; index < 10; index += 1) {
+  doubleTap(sequence, 5_000 + index * 1_000)
+  assert.equal(sequence.scale, 2.5, `DT7.${index + 1}a: zoom in`)
+  assert.equal(sequence.mode, 'none', `DT7.${index + 1}a: mode released`)
+  doubleTap(sequence, 5_500 + index * 1_000)
+  assert.equal(sequence.scale, 1, `DT7.${index + 1}b: zoom out`)
+  assert.equal(sequence.mode, 'none', `DT7.${index + 1}b: mode released`)
+}
+
+const viewerSource = readFileSync(
+  new URL('../src/PhotoViewerV2.tsx', import.meta.url),
+  'utf8'
+)
+assert.ok(
+  viewerSource.indexOf('const lastTap = lastTapRef.current') <
+    viewerSource.indexOf("gestureModeRef.current = scaleRef.current > SCALE_EPSILON ? 'pan' : 'pending'"),
+  'DT4: component checks double tap before selecting zoomed pan'
+)
+assert.match(
+  viewerSource,
+  /\(mode === 'pending' \|\| mode === 'pan'\)/,
+  'DT2: component records a stationary zoomed tap'
+)
+assert.match(
+  viewerSource,
+  /mode === 'doubletap'[\s\S]*?gestureModeRef\.current = 'none'/,
+  'DT7: component releases doubletap mode on pointerup'
+)
+
+console.log('PhotoViewer double-tap event sequence assertions passed (DT1-DT7)')
