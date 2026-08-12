@@ -3,6 +3,20 @@ import type { PointerEvent, TransitionEvent } from 'react'
 
 import './PhotoViewer.css'
 
+import {
+  DOUBLE_TAP_SCALE,
+  MAX_SCALE,
+  chooseDragMode,
+  clamp,
+  getDistance,
+  getDoubleTapScale,
+  getMidpoint,
+  getPanBounds,
+  getSwipeIndex,
+  isBaseScale,
+  shouldDismiss,
+} from './photoViewerGestures'
+import type { GestureMode, Point } from './photoViewerGestures'
 import type { BoundaryPhoto } from './types'
 
 type PhotoViewerProps = {
@@ -16,240 +30,454 @@ type PhotoViewerProps = {
   onCategoryChange: (photo: BoundaryPhoto, category: string) => Promise<void>
 }
 
-type Point = { x: number; y: number }
-type GestureMode = 'pending' | 'pan' | 'pinch' | 'horizontal' | 'dismiss' | null
+type Animation = 'slide' | 'snapTrack' | 'dismiss' | 'snapImage' | 'doubleTap' | null
 
-const SWIPE_THRESHOLD = 64
-const DISMISS_THRESHOLD = 120
-const VELOCITY_THRESHOLD = 0.55
-const AXIS_LOCK_DISTANCE = 8
 const EDGE_GESTURE_WIDTH = 24
-const MAX_SCALE = 4
-const DOUBLE_TAP_SCALE = 2.5
 const TAP_MOVE_TOLERANCE = 10
 const DOUBLE_TAP_DELAY = 280
+const TRACK_TRANSITION = 'transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1)'
+const IMAGE_TRANSITION = 'transform 180ms ease-out'
 
-const clamp = (value: number, min: number, max: number) =>
-  Math.min(Math.max(value, min), max)
-const getDistance = (a: Point, b: Point) => Math.hypot(b.x - a.x, b.y - a.y)
-const getMidpoint = (a: Point, b: Point): Point => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 })
-
-function PhotoViewer(props: PhotoViewerProps) {
-  const { photos, activeIndex, boundaryPointName, categories, onClose,
-    onIndexChange, onDelete, onCategoryChange } = props
+function PhotoViewer({
+  photos,
+  activeIndex,
+  boundaryPointName,
+  categories,
+  onClose,
+  onIndexChange,
+  onDelete,
+  onCategoryChange,
+}: PhotoViewerProps) {
   const photo = photos[activeIndex]
   const [urls, setUrls] = useState<Record<number, string>>({})
-  const [scale, setScale] = useState(1)
-  const [pan, setPan] = useState<Point>({ x: 0, y: 0 })
-  const [drag, setDrag] = useState<Point>({ x: 0, y: 0 })
   const [controlsVisible, setControlsVisible] = useState(true)
-  const [isDragging, setIsDragging] = useState(false)
-  const [isAnimating, setIsAnimating] = useState(false)
-  const [pendingIndex, setPendingIndex] = useState<number | null>(null)
+  const viewerRef = useRef<HTMLDivElement>(null)
+  const stageRef = useRef<HTMLDivElement>(null)
+  const trackRef = useRef<HTMLDivElement>(null)
+  const activeImageRef = useRef<HTMLImageElement>(null)
   const scaleRef = useRef(1)
   const panRef = useRef<Point>({ x: 0, y: 0 })
-  const pointers = useRef(new Map<number, Point>())
-  const mode = useRef<GestureMode>(null)
-  const start = useRef({ point: { x: 0, y: 0 }, pan: { x: 0, y: 0 }, time: 0 })
-  const pinchStart = useRef({ distance: 0, scale: 1, contentPoint: { x: 0, y: 0 } })
-  const tapTimer = useRef<number | null>(null)
-  const lastTap = useRef<{ point: Point; time: number } | null>(null)
-  const stageRef = useRef<HTMLDivElement>(null)
-  const activeImageRef = useRef<HTMLImageElement>(null)
-  const dialogRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef<Point>({ x: 0, y: 0 })
+  const pointersRef = useRef(new Map<number, Point>())
+  const capturedPointersRef = useRef(new Set<number>())
+  const modeRef = useRef<GestureMode>('idle')
+  const animationRef = useRef<Animation>(null)
+  const pendingIndexRef = useRef<number | null>(null)
+  const gestureStartRef = useRef({
+    point: { x: 0, y: 0 },
+    pan: { x: 0, y: 0 },
+    time: 0,
+  })
+  const pinchStartRef = useRef({
+    distance: 0,
+    scale: 1,
+    contentPoint: { x: 0, y: 0 },
+  })
+  const lastTapRef = useRef<{ point: Point; time: number } | null>(null)
+  const tapTimerRef = useRef<number | null>(null)
+  const rafRef = useRef<number | null>(null)
+
+  const clearTap = () => {
+    if (tapTimerRef.current !== null) window.clearTimeout(tapTimerRef.current)
+    tapTimerRef.current = null
+    lastTapRef.current = null
+  }
+
+  const releaseCaptures = () => {
+    const stage = stageRef.current
+    if (stage) {
+      capturedPointersRef.current.forEach((pointerId) => {
+        if (stage.hasPointerCapture(pointerId)) stage.releasePointerCapture(pointerId)
+      })
+    }
+    capturedPointersRef.current.clear()
+  }
+
+  const renderTransforms = () => {
+    rafRef.current = null
+    if (trackRef.current) {
+      trackRef.current.style.transform =
+        `translate3d(${dragRef.current.x}px, ${dragRef.current.y}px, 0)`
+    }
+    if (activeImageRef.current) {
+      activeImageRef.current.style.transform =
+        `translate3d(${panRef.current.x}px, ${panRef.current.y}px, 0) scale(${scaleRef.current})`
+    }
+    if (viewerRef.current) {
+      const opacity = clamp(1 - dragRef.current.y / 420, 0.28, 1)
+      viewerRef.current.style.backgroundColor = `rgba(0, 0, 0, ${opacity})`
+    }
+  }
+
+  const scheduleRender = () => {
+    if (rafRef.current === null) rafRef.current = requestAnimationFrame(renderTransforms)
+  }
+
+  const setTransitions = (track: string, image: string) => {
+    if (trackRef.current) trackRef.current.style.transition = track
+    if (activeImageRef.current) activeImageRef.current.style.transition = image
+  }
+
+  const resetGesture = () => {
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+    rafRef.current = null
+    releaseCaptures()
+    clearTap()
+    scaleRef.current = 1
+    panRef.current = { x: 0, y: 0 }
+    dragRef.current = { x: 0, y: 0 }
+    pointersRef.current.clear()
+    modeRef.current = 'idle'
+    animationRef.current = null
+    pendingIndexRef.current = null
+    setTransitions('', '')
+    renderTransforms()
+  }
 
   useEffect(() => {
-    const next: Record<number, string> = {}
-    for (let index = Math.max(0, activeIndex - 1); index <= Math.min(photos.length - 1, activeIndex + 1); index += 1) {
-      next[index] = URL.createObjectURL(photos[index].blob)
+    const nextUrls: Record<number, string> = {}
+    const first = Math.max(0, activeIndex - 1)
+    const last = Math.min(photos.length - 1, activeIndex + 1)
+    for (let index = first; index <= last; index += 1) {
+      nextUrls[index] = URL.createObjectURL(photos[index].blob)
     }
-    setUrls(next)
-    return () => Object.values(next).forEach((url) => URL.revokeObjectURL(url))
+    setUrls(nextUrls)
+    return () => Object.values(nextUrls).forEach(URL.revokeObjectURL)
   }, [activeIndex, photos])
 
-  const imageSize = () => {
+  useLayoutEffect(() => {
+    resetGesture()
+  }, [activeIndex])
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    viewerRef.current?.focus()
+    return () => {
+      document.body.style.overflow = previousOverflow
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+      releaseCaptures()
+      clearTap()
+    }
+  }, [])
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (modeRef.current === 'animating') return
+      if (event.key === 'Escape') onClose()
+      else if (event.key === 'ArrowLeft' && activeIndex > 0) onIndexChange(activeIndex - 1)
+      else if (event.key === 'ArrowRight' && activeIndex < photos.length - 1) onIndexChange(activeIndex + 1)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [activeIndex, onClose, onIndexChange, photos.length])
+
+  if (!photo) return null
+
+  const getContainedImageSize = () => {
     const stage = stageRef.current
     const image = activeImageRef.current
     if (!stage || !image?.naturalWidth || !image.naturalHeight) return { width: 0, height: 0 }
+    const imageRatio = image.naturalWidth / image.naturalHeight
     const stageRatio = stage.clientWidth / stage.clientHeight
-    const ratio = image.naturalWidth / image.naturalHeight
-    return ratio > stageRatio
-      ? { width: stage.clientWidth, height: stage.clientWidth / ratio }
-      : { width: stage.clientHeight * ratio, height: stage.clientHeight }
+    return imageRatio > stageRatio
+      ? { width: stage.clientWidth, height: stage.clientWidth / imageRatio }
+      : { width: stage.clientHeight * imageRatio, height: stage.clientHeight }
   }
 
-  const constrainPan = (value: Point, nextScale: number): Point => {
+  const constrainPan = (pan: Point, scale: number) => {
     const stage = stageRef.current
-    const size = imageSize()
-    if (!stage || !size.width) return { x: 0, y: 0 }
-    const maxX = Math.max(0, (size.width * nextScale - stage.clientWidth) / 2)
-    const maxY = Math.max(0, (size.height * nextScale - stage.clientHeight) / 2)
-    return { x: clamp(value.x, -maxX, maxX), y: clamp(value.y, -maxY, maxY) }
-  }
-
-  const resetTransform = () => {
-    scaleRef.current = 1
-    panRef.current = { x: 0, y: 0 }
-    setScale(1)
-    setPan({ x: 0, y: 0 })
-    setDrag({ x: 0, y: 0 })
-    setIsDragging(false)
-    setIsAnimating(false)
-    setPendingIndex(null)
-    pointers.current.clear()
-    mode.current = null
-  }
-
-  // Reset in the same pre-paint phase as the parent's index update. The incoming
-  // slide is already centered, so it never flashes back to the old position.
-  useLayoutEffect(resetTransform, [activeIndex])
-  useEffect(() => {
-    const previous = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    dialogRef.current?.focus()
-    return () => { document.body.style.overflow = previous }
-  }, [])
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-      if (event.key === 'ArrowLeft' && activeIndex > 0) onIndexChange(activeIndex - 1)
-      if (event.key === 'ArrowRight' && activeIndex < photos.length - 1) onIndexChange(activeIndex + 1)
+    const image = getContainedImageSize()
+    if (!stage || !image.width) return { x: 0, y: 0 }
+    const bounds = getPanBounds(
+      image.width,
+      image.height,
+      stage.clientWidth,
+      stage.clientHeight,
+      scale
+    )
+    return {
+      x: clamp(pan.x, -bounds.x, bounds.x),
+      y: clamp(pan.y, -bounds.y, bounds.y),
     }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [activeIndex, onClose, onIndexChange, photos.length])
-  useEffect(() => () => { if (tapTimer.current !== null) window.clearTimeout(tapTimer.current) }, [])
-
-  if (!photo) return null
-  const isControl = (target: EventTarget | null) =>
-    target instanceof Element && Boolean(target.closest('button, select, label'))
+  }
 
   const startPinch = () => {
-    const [a, b] = [...pointers.current.values()]
+    const [first, second] = [...pointersRef.current.values()]
     const stage = stageRef.current
-    if (!a || !b || !stage) return
-    const midpoint = getMidpoint(a, b)
+    if (!first || !second || !stage) return
+    const midpoint = getMidpoint(first, second)
     const rect = stage.getBoundingClientRect()
-    const centered = { x: midpoint.x - rect.left - stage.clientWidth / 2, y: midpoint.y - rect.top - stage.clientHeight / 2 }
-    mode.current = 'pinch'
-    pinchStart.current = {
-      distance: getDistance(a, b), scale: scaleRef.current,
-      contentPoint: { x: (centered.x - panRef.current.x) / scaleRef.current, y: (centered.y - panRef.current.y) / scaleRef.current },
+    const centered = {
+      x: midpoint.x - rect.left - stage.clientWidth / 2,
+      y: midpoint.y - rect.top - stage.clientHeight / 2,
     }
-    setDrag({ x: 0, y: 0 })
+    modeRef.current = 'pinch'
+    dragRef.current = { x: 0, y: 0 }
+    pinchStartRef.current = {
+      distance: getDistance(first, second),
+      scale: scaleRef.current,
+      contentPoint: {
+        x: (centered.x - panRef.current.x) / scaleRef.current,
+        y: (centered.y - panRef.current.y) / scaleRef.current,
+      },
+    }
+    scheduleRender()
   }
 
-  const pointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if (isControl(event.target) || event.button !== 0 || isAnimating) return
-    if (!pointers.current.size && scaleRef.current === 1 &&
-      (event.clientX < EDGE_GESTURE_WIDTH || event.clientX > window.innerWidth - EDGE_GESTURE_WIDTH)) return
-    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || modeRef.current === 'animating') return
+    if (event.target instanceof Element && event.target.closest('button, select, label')) return
+    if (
+      pointersRef.current.size === 0 &&
+      isBaseScale(scaleRef.current) &&
+      (event.clientX < EDGE_GESTURE_WIDTH ||
+        event.clientX > window.innerWidth - EDGE_GESTURE_WIDTH)
+    ) return
+
+    clearTapIfGestureIsStale()
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
     event.currentTarget.setPointerCapture(event.pointerId)
-    setIsDragging(true)
-    if (pointers.current.size === 2) return startPinch()
-    mode.current = scaleRef.current > 1 ? 'pan' : 'pending'
-    start.current = { point: { x: event.clientX, y: event.clientY }, pan: panRef.current, time: performance.now() }
-  }
-
-  const pointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    if (!pointers.current.has(event.pointerId)) return
-    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
-    if (mode.current === 'pinch' && pointers.current.size >= 2) {
-      const [a, b] = [...pointers.current.values()]
-      const stage = stageRef.current
-      if (!a || !b || !stage) return
-      const nextScale = clamp(pinchStart.current.scale * getDistance(a, b) / pinchStart.current.distance, 1, MAX_SCALE)
-      const midpoint = getMidpoint(a, b)
-      const rect = stage.getBoundingClientRect()
-      const centered = { x: midpoint.x - rect.left - stage.clientWidth / 2, y: midpoint.y - rect.top - stage.clientHeight / 2 }
-      const nextPan = constrainPan({ x: centered.x - pinchStart.current.contentPoint.x * nextScale, y: centered.y - pinchStart.current.contentPoint.y * nextScale }, nextScale)
-      scaleRef.current = nextScale; panRef.current = nextPan
-      setScale(nextScale); setPan(nextPan)
+    capturedPointersRef.current.add(event.pointerId)
+    setTransitions('', '')
+    if (pointersRef.current.size === 2) {
+      startPinch()
       return
     }
-    const dx = event.clientX - start.current.point.x
-    const dy = event.clientY - start.current.point.y
-    if (mode.current === 'pending' && Math.hypot(dx, dy) >= AXIS_LOCK_DISTANCE) {
-      if (dy > 0 && Math.abs(dy) > Math.abs(dx) * 1.2) mode.current = 'dismiss'
-      else if (Math.abs(dx) > Math.abs(dy) * 1.2) mode.current = 'horizontal'
-    }
-    if (mode.current === 'pan') {
-      const next = constrainPan({ x: start.current.pan.x + dx, y: start.current.pan.y + dy }, scaleRef.current)
-      panRef.current = next; setPan(next)
-    } else if (mode.current === 'horizontal') {
-      const atEdge = (dx > 0 && activeIndex === 0) || (dx < 0 && activeIndex === photos.length - 1)
-      setDrag({ x: atEdge ? dx * 0.28 : dx, y: 0 })
-    } else if (mode.current === 'dismiss') {
-      setDrag({ x: 0, y: Math.max(0, dy) })
+    modeRef.current = isBaseScale(scaleRef.current) ? 'pending' : 'pan'
+    gestureStartRef.current = {
+      point: { x: event.clientX, y: event.clientY },
+      pan: { ...panRef.current },
+      time: performance.now(),
     }
   }
 
-  const doubleTap = (point: Point) => {
-    if (scaleRef.current > 1) return resetTransform()
-    const stage = stageRef.current
-    if (!stage) return
-    const rect = stage.getBoundingClientRect()
-    const centered = { x: point.x - rect.left - stage.clientWidth / 2, y: point.y - rect.top - stage.clientHeight / 2 }
-    const next = constrainPan({ x: centered.x * (1 - DOUBLE_TAP_SCALE), y: centered.y * (1 - DOUBLE_TAP_SCALE) }, DOUBLE_TAP_SCALE)
-    scaleRef.current = DOUBLE_TAP_SCALE; panRef.current = next
-    setScale(DOUBLE_TAP_SCALE); setPan(next)
+  const clearTapIfGestureIsStale = () => {
+    if (
+      lastTapRef.current &&
+      performance.now() - lastTapRef.current.time > DOUBLE_TAP_DELAY
+    ) clearTap()
+  }
+
+  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (!pointersRef.current.has(event.pointerId)) return
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+
+    if (modeRef.current === 'pinch' && pointersRef.current.size >= 2) {
+      const [first, second] = [...pointersRef.current.values()]
+      const stage = stageRef.current
+      if (!first || !second || !stage) return
+      const scale = clamp(
+        pinchStartRef.current.scale *
+          getDistance(first, second) / pinchStartRef.current.distance,
+        1,
+        MAX_SCALE
+      )
+      const midpoint = getMidpoint(first, second)
+      const rect = stage.getBoundingClientRect()
+      const centered = {
+        x: midpoint.x - rect.left - stage.clientWidth / 2,
+        y: midpoint.y - rect.top - stage.clientHeight / 2,
+      }
+      scaleRef.current = scale
+      panRef.current = constrainPan({
+        x: centered.x - pinchStartRef.current.contentPoint.x * scale,
+        y: centered.y - pinchStartRef.current.contentPoint.y * scale,
+      }, scale)
+      scheduleRender()
+      return
+    }
+
+    const deltaX = event.clientX - gestureStartRef.current.point.x
+    const deltaY = event.clientY - gestureStartRef.current.point.y
+    if (modeRef.current === 'pending') {
+      modeRef.current = chooseDragMode(scaleRef.current, deltaX, deltaY)
+      if (modeRef.current !== 'pending') clearTap()
+    }
+    if (modeRef.current === 'pan') {
+      dragRef.current = { x: 0, y: 0 }
+      panRef.current = constrainPan({
+        x: gestureStartRef.current.pan.x + deltaX,
+        y: gestureStartRef.current.pan.y + deltaY,
+      }, scaleRef.current)
+    } else if (modeRef.current === 'horizontalSwipe') {
+      const atEdge =
+        (deltaX > 0 && activeIndex === 0) ||
+        (deltaX < 0 && activeIndex === photos.length - 1)
+      dragRef.current = { x: atEdge ? deltaX * 0.28 : deltaX, y: 0 }
+    } else if (modeRef.current === 'verticalDismiss') {
+      dragRef.current = { x: 0, y: Math.max(0, deltaY) }
+    }
+    scheduleRender()
+  }
+
+  const applyDoubleTap = (point: Point) => {
+    const nextScale = getDoubleTapScale(scaleRef.current)
+    setTransitions('', IMAGE_TRANSITION)
+    animationRef.current = 'doubleTap'
+    if (nextScale === 1) {
+      scaleRef.current = 1
+      panRef.current = { x: 0, y: 0 }
+    } else {
+      const stage = stageRef.current
+      if (!stage) return
+      const rect = stage.getBoundingClientRect()
+      const centered = {
+        x: point.x - rect.left - stage.clientWidth / 2,
+        y: point.y - rect.top - stage.clientHeight / 2,
+      }
+      scaleRef.current = DOUBLE_TAP_SCALE
+      panRef.current = constrainPan({
+        x: centered.x * (1 - DOUBLE_TAP_SCALE),
+        y: centered.y * (1 - DOUBLE_TAP_SCALE),
+      }, DOUBLE_TAP_SCALE)
+    }
+    dragRef.current = { x: 0, y: 0 }
+    scheduleRender()
   }
 
   const registerTap = (point: Point) => {
     const now = performance.now()
-    if (lastTap.current && now - lastTap.current.time <= DOUBLE_TAP_DELAY && getDistance(lastTap.current.point, point) <= 32) {
-      if (tapTimer.current !== null) window.clearTimeout(tapTimer.current)
-      tapTimer.current = null; lastTap.current = null; doubleTap(point); return
+    const previous = lastTapRef.current
+    if (previous && now - previous.time <= DOUBLE_TAP_DELAY && getDistance(previous.point, point) <= 32) {
+      clearTap()
+      applyDoubleTap(point)
+      return
     }
-    lastTap.current = { point, time: now }
-    tapTimer.current = window.setTimeout(() => {
-      setControlsVisible((value) => !value); lastTap.current = null; tapTimer.current = null
+    clearTap()
+    lastTapRef.current = { point, time: now }
+    tapTimerRef.current = window.setTimeout(() => {
+      setControlsVisible((visible) => !visible)
+      lastTapRef.current = null
+      tapTimerRef.current = null
     }, DOUBLE_TAP_DELAY)
   }
 
-  const finish = (event: PointerEvent<HTMLDivElement>, cancelled = false) => {
-    if (!pointers.current.has(event.pointerId)) return
-    const gesture = mode.current
-    const dx = event.clientX - start.current.point.x
-    const dy = event.clientY - start.current.point.y
-    const elapsed = performance.now() - start.current.time
-    pointers.current.delete(event.pointerId)
-    if (gesture === 'pinch' && pointers.current.size) return
-    pointers.current.clear(); mode.current = null; setIsDragging(false)
-    if (cancelled) { setIsAnimating(true); setDrag({ x: 0, y: 0 }); return }
+  const releasePointer = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    capturedPointersRef.current.delete(event.pointerId)
+    pointersRef.current.delete(event.pointerId)
+  }
+
+  const animateTrack = (animation: Animation, target: Point) => {
+    modeRef.current = 'animating'
+    animationRef.current = animation
+    setTransitions(TRACK_TRANSITION, '')
+    dragRef.current = target
+    scheduleRender()
+  }
+
+  const handlePointerEnd = (
+    event: PointerEvent<HTMLDivElement>,
+    cancelled = false
+  ) => {
+    if (!pointersRef.current.has(event.pointerId)) return
+    const gesture = modeRef.current
+    const deltaX = event.clientX - gestureStartRef.current.point.x
+    const deltaY = event.clientY - gestureStartRef.current.point.y
+    const elapsed = performance.now() - gestureStartRef.current.time
+    releasePointer(event)
+
+    if (gesture === 'pinch' && pointersRef.current.size > 0) return
+    releaseCaptures()
+    pointersRef.current.clear()
+
+    if (cancelled) {
+      clearTap()
+      modeRef.current = 'idle'
+      animationRef.current = null
+      pendingIndexRef.current = null
+      dragRef.current = { x: 0, y: 0 }
+      panRef.current = constrainPan(panRef.current, scaleRef.current)
+      setTransitions('', '')
+      scheduleRender()
+      return
+    }
+
+    const wasTap =
+      Math.abs(deltaX) <= TAP_MOVE_TOLERANCE &&
+      Math.abs(deltaY) <= TAP_MOVE_TOLERANCE &&
+      elapsed < 350
+
+    // A stationary pointer at a zoomed scale starts in pan mode, but it is
+    // still a tap. Handling it here makes the second double tap deterministic.
+    if (gesture === 'pan' && wasTap) {
+      modeRef.current = 'idle'
+      registerTap({ x: event.clientX, y: event.clientY })
+      return
+    }
+
     if (gesture === 'pinch' || gesture === 'pan') {
-      if (scaleRef.current <= 1.01) resetTransform()
-      else { const next = constrainPan(panRef.current, scaleRef.current); panRef.current = next; setPan(next) }
+      if (isBaseScale(scaleRef.current)) {
+        scaleRef.current = 1
+        panRef.current = { x: 0, y: 0 }
+      } else {
+        panRef.current = constrainPan(panRef.current, scaleRef.current)
+      }
+      modeRef.current = 'idle'
+      setTransitions('', IMAGE_TRANSITION)
+      scheduleRender()
       return
     }
-    const wasTap = Math.abs(dx) <= TAP_MOVE_TOLERANCE && Math.abs(dy) <= TAP_MOVE_TOLERANCE && elapsed < 350
-    if (wasTap) { setDrag({ x: 0, y: 0 }); registerTap({ x: event.clientX, y: event.clientY }); return }
-    if (gesture === 'dismiss') {
-      const velocity = dy / Math.max(elapsed, 1)
-      if (dy >= DISMISS_THRESHOLD || velocity >= VELOCITY_THRESHOLD) {
-        setIsAnimating(true); setDrag({ x: 0, y: stageRef.current?.clientHeight ?? window.innerHeight }); setPendingIndex(-1)
-      } else { setIsAnimating(true); setDrag({ x: 0, y: 0 }) }
+
+    if (gesture === 'pending' && wasTap) {
+      modeRef.current = 'idle'
+      registerTap({ x: event.clientX, y: event.clientY })
       return
     }
-    if (gesture === 'horizontal' && Math.abs(dx) >= SWIPE_THRESHOLD) {
-      const next = dx > 0 ? activeIndex - 1 : activeIndex + 1
-      if (next >= 0 && next < photos.length) {
-        setPendingIndex(next); setIsAnimating(true)
-        setDrag({ x: dx > 0 ? stageRef.current?.clientWidth ?? window.innerWidth : -(stageRef.current?.clientWidth ?? window.innerWidth), y: 0 })
+    clearTap()
+
+    if (
+      gesture === 'verticalDismiss' &&
+      shouldDismiss(scaleRef.current, deltaY, elapsed)
+    ) {
+      pendingIndexRef.current = null
+      animateTrack('dismiss', {
+        x: 0,
+        y: stageRef.current?.clientHeight ?? window.innerHeight,
+      })
+      return
+    }
+
+    if (gesture === 'horizontalSwipe') {
+      const nextIndex = getSwipeIndex(activeIndex, photos.length, deltaX)
+      if (nextIndex !== null) {
+        pendingIndexRef.current = nextIndex
+        const width = stageRef.current?.clientWidth ?? window.innerWidth
+        animateTrack('slide', { x: deltaX > 0 ? width : -width, y: 0 })
         return
       }
     }
-    setIsAnimating(true); setDrag({ x: 0, y: 0 })
+    pendingIndexRef.current = null
+    animateTrack('snapTrack', { x: 0, y: 0 })
   }
 
-  const transitionEnd = (event: TransitionEvent<HTMLDivElement>) => {
-    if (event.target !== event.currentTarget || event.propertyName !== 'transform') return
-    if (pendingIndex === -1) return onClose()
-    if (pendingIndex !== null) {
-      onIndexChange(pendingIndex)
-    } else {
-      setIsAnimating(false)
+  const handleTrackTransitionEnd = (event: TransitionEvent<HTMLDivElement>) => {
+    if (
+      event.target !== event.currentTarget ||
+      event.propertyName !== 'transform' ||
+      modeRef.current !== 'animating'
+    ) return
+    const animation = animationRef.current
+    animationRef.current = null
+    if (animation === 'dismiss') {
+      modeRef.current = 'idle'
+      onClose()
+    } else if (animation === 'slide' && pendingIndexRef.current !== null) {
+      const nextIndex = pendingIndexRef.current
+      pendingIndexRef.current = null
+      onIndexChange(nextIndex)
+    } else if (animation === 'snapTrack') {
+      modeRef.current = 'idle'
+      setTransitions('', '')
     }
+  }
+
+  const handleImageTransitionEnd = (event: TransitionEvent<HTMLImageElement>) => {
+    if (event.target !== event.currentTarget || event.propertyName !== 'transform') return
+    if (animationRef.current === 'doubleTap') animationRef.current = null
+    if (modeRef.current === 'idle') setTransitions('', '')
   }
 
   const handleDelete = async () => {
@@ -257,41 +485,71 @@ function PhotoViewer(props: PhotoViewerProps) {
     if (photos.length === 1) onClose()
     else if (activeIndex === photos.length - 1) onIndexChange(activeIndex - 1)
   }
-  const controls = `photo-viewer-controls${controlsVisible ? ' is-visible' : ''}`
-  const backgroundOpacity = clamp(1 - drag.y / 420, 0.28, 1)
+
+  const controlsClass = `photo-viewer-controls${controlsVisible ? ' is-visible' : ''}`
   const visibleIndexes = Object.keys(urls).map(Number)
 
-  return <div ref={dialogRef} className="photo-viewer" role="dialog" aria-modal="true"
-    aria-label={`${boundaryPointName}の写真`} tabIndex={-1} style={{ backgroundColor: `rgba(0, 0, 0, ${backgroundOpacity})` }}>
-    <header className={`${controls} photo-viewer-header`}>
-      <button type="button" className="photo-viewer-icon-button" aria-label="写真を閉じる" onClick={onClose}>×</button>
-      <strong className="photo-viewer-title">{boundaryPointName}</strong>
-      <span className="photo-viewer-position" aria-live="polite">{activeIndex + 1} / {photos.length}</span>
-    </header>
-    <div ref={stageRef} className="photo-viewer-stage" onPointerDown={pointerDown} onPointerMove={pointerMove}
-      onPointerUp={finish} onPointerCancel={(event) => finish(event, true)}>
-      <div className={`photo-viewer-track${isDragging ? ' is-dragging' : ''}${isAnimating ? ' is-animating' : ''}`}
-        style={{ transform: `translate3d(${drag.x}px, ${drag.y}px, 0)` }} onTransitionEnd={transitionEnd}>
-        {visibleIndexes.map((index) => <div className="photo-viewer-slide" key={photos[index].id}
-          style={{ transform: `translate3d(${(index - activeIndex) * 100}%, 0, 0)` }}>
-          <img ref={index === activeIndex ? activeImageRef : undefined} className="photo-viewer-image"
-            src={urls[index]} alt={photos[index].fileName} draggable="false"
-            style={index === activeIndex ? { transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${scale})` } : undefined} />
-        </div>)}
+  return (
+    <div
+      ref={viewerRef}
+      className="photo-viewer"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${boundaryPointName}の写真`}
+      tabIndex={-1}
+    >
+      <header className={`${controlsClass} photo-viewer-header`}>
+        <button type="button" className="photo-viewer-icon-button" aria-label="写真を閉じる" onClick={onClose}>×</button>
+        <strong className="photo-viewer-title">{boundaryPointName}</strong>
+        <span className="photo-viewer-position" aria-live="polite">{activeIndex + 1} / {photos.length}</span>
+      </header>
+      <div
+        ref={stageRef}
+        className="photo-viewer-stage"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerEnd}
+        onPointerCancel={(event) => handlePointerEnd(event, true)}
+      >
+        <div
+          ref={trackRef}
+          className="photo-viewer-track"
+          onTransitionEnd={handleTrackTransitionEnd}
+        >
+          {visibleIndexes.map((index) => (
+            <div
+              className="photo-viewer-slide"
+              key={photos[index].id}
+              style={{ transform: `translate3d(${(index - activeIndex) * 100}%, 0, 0)` }}
+            >
+              <img
+                ref={index === activeIndex ? activeImageRef : undefined}
+                className="photo-viewer-image"
+                src={urls[index]}
+                alt={photos[index].fileName}
+                draggable="false"
+                onTransitionEnd={index === activeIndex ? handleImageTransitionEnd : undefined}
+              />
+            </div>
+          ))}
+        </div>
+        <div className={`${controlsClass} photo-viewer-navigation`}>
+          <button type="button" className="photo-viewer-nav photo-viewer-nav-previous" aria-label="前の写真" disabled={activeIndex === 0} onClick={() => onIndexChange(activeIndex - 1)}>‹</button>
+          <button type="button" className="photo-viewer-nav photo-viewer-nav-next" aria-label="次の写真" disabled={activeIndex === photos.length - 1} onClick={() => onIndexChange(activeIndex + 1)}>›</button>
+        </div>
       </div>
-      <div className={`${controls} photo-viewer-navigation`}>
-        <button type="button" className="photo-viewer-nav photo-viewer-nav-previous" aria-label="前の写真" disabled={activeIndex === 0} onClick={() => onIndexChange(activeIndex - 1)}>‹</button>
-        <button type="button" className="photo-viewer-nav photo-viewer-nav-next" aria-label="次の写真" disabled={activeIndex === photos.length - 1} onClick={() => onIndexChange(activeIndex + 1)}>›</button>
-      </div>
-    </div>
-    <footer className={`${controls} photo-viewer-footer`}>
-      <label className="photo-viewer-category"><span>写真種別</span><select value={photo.category || ''}
-        onChange={(event) => void onCategoryChange(photo, event.target.value)}>
-        <option value="">未分類</option>{categories.map((category) => <option key={category} value={category}>{category}</option>)}
-      </select></label>
-      <button type="button" className="photo-viewer-delete" onClick={() => void handleDelete()}>削除</button>
-    </footer>
+      <footer className={`${controlsClass} photo-viewer-footer`}>
+        <label className="photo-viewer-category">
+          <span>写真種別</span>
+          <select value={photo.category || ''} onChange={(event) => void onCategoryChange(photo, event.target.value)}>
+            <option value="">未分類</option>
+            {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+          </select>
+        </label>
+        <button type="button" className="photo-viewer-delete" onClick={() => void handleDelete()}>削除</button>
+      </footer>
   </div>
+  )
 }
 
 export default PhotoViewer
