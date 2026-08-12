@@ -988,6 +988,18 @@ textarea {
   border: 0;
   background: transparent;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.photo-image-button:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.photo-image-button:active {
+  border-color: transparent;
+  background: transparent;
 }
 
 .photo-image-button:focus-visible {
@@ -1004,6 +1016,12 @@ textarea {
 
   object-fit: cover;
 
+  background: #eeeeee;
+}
+
+.photo-thumbnail-placeholder {
+  width: 100%;
+  aspect-ratio: 1 / 1;
   background: #eeeeee;
 }
 
@@ -1220,6 +1238,28 @@ textarea {
   cursor: pointer;
 }
 
+.photo-add-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.photo-library-button {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #1976d2;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1267b9;
+  -webkit-text-fill-color: #1267b9;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .photo-image-wrapper {
   position: relative;
 }
@@ -1274,6 +1314,19 @@ textarea {
   background: #ffffff;
 }
 
+.photo-device-save-button {
+  width: 100%;
+  min-height: 44px;
+  margin-bottom: 6px;
+  border: 1px solid #1976d2;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1267b9;
+  -webkit-text-fill-color: #1267b9;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 /*
  * Androidダークモードでも写真分類をライト表示
  */
@@ -1281,6 +1334,8 @@ textarea {
 @media (prefers-color-scheme: dark) {
   .photo-category-box,
   .photo-category-chip,
+  .photo-library-button,
+  .photo-device-save-button,
   .photo-card-controls,
   .photo-card-controls select {
     background: #ffffff;
@@ -1291,6 +1346,13 @@ textarea {
   .photo-category-chip.active {
     background: #e8f2ff;
 
+    color: #1267b9;
+
+    -webkit-text-fill-color: #1267b9;
+  }
+
+  .photo-library-button,
+  .photo-device-save-button {
     color: #1267b9;
 
     -webkit-text-fill-color: #1267b9;
