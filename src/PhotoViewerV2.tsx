@@ -1,26 +1,20 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { PointerEvent, TransitionEvent } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 
 import './PhotoViewerV2.css'
 
-import {
-  DOUBLE_TAP_SCALE,
-  MAX_SCALE,
-  canNavigatePhotos,
-  chooseDragMode,
-  clamp,
-  getDistance,
-  getDoubleTapScale,
-  getMidpoint,
-  getPanBounds,
-  getRequestedPhotoIndex,
-  getSlideOffset,
-  getSwipeIndex,
-  isBaseScale,
-  shouldDismiss,
-} from './photoViewerGestures'
-import type { GestureMode, Point } from './photoViewerGestures'
 import type { BoundaryPhoto } from './types'
+
+type GestureMode =
+  | 'none'
+  | 'pending'
+  | 'swipe'
+  | 'close'
+  | 'pan'
+  | 'pinch'
+  | 'doubletap'
+
+type Point = { x: number; y: number }
 
 type PhotoViewerV2Props = {
   photos: BoundaryPhoto[]
@@ -33,12 +27,28 @@ type PhotoViewerV2Props = {
   onCategoryChange: (photo: BoundaryPhoto, category: string) => Promise<void>
 }
 
-type Animation = 'snapImage' | 'doubleTap' | null
+export const MIN_SCALE = 1
+export const MAX_SCALE = 5
+export const DOUBLE_TAP_SCALE = 2.5
+export const GESTURE_LOCK = 14
+export const SWIPE_THRESHOLD = 56
+export const CLOSE_THRESHOLD = 90
+export const DOUBLE_TAP_MS = 360
+export const DOUBLE_TAP_DISTANCE = 44
+export const SLIDE_DURATION = 280
+export const CLOSE_DURATION = 180
 
-const EDGE_GESTURE_WIDTH = 24
-const TAP_MOVE_TOLERANCE = 10
-const DOUBLE_TAP_DELAY = 280
-const IMAGE_TRANSITION = 'transform 180ms ease-out'
+const SLIDE_EASING = 'cubic-bezier(.22,.61,.36,1)'
+const SCALE_EPSILON = 1.01
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value))
+
+const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y)
+const midpoint = (a: Point, b: Point): Point => ({
+  x: (a.x + b.x) / 2,
+  y: (a.y + b.y) / 2,
+})
 
 function PhotoViewerV2({
   photos,
@@ -50,605 +60,459 @@ function PhotoViewerV2({
   onDelete,
   onCategoryChange,
 }: PhotoViewerV2Props) {
-  const photo = photos[activeIndex]
-  const [urls, setUrls] = useState<Record<number, string>>({})
-  const [controlsVisible, setControlsVisible] = useState(true)
-  const [isZoomed, setIsZoomed] = useState(false)
-  const [imageLoading, setImageLoading] = useState(true)
-  const urlsRef = useRef<Record<number, { photoId: string; url: string }>>({})
+  const initialPhotoIdRef = useRef(photos[activeIndex]?.id)
+  const initialIndex = Math.max(
+    0,
+    photos.findIndex((item) => item.id === initialPhotoIdRef.current)
+  )
+  const [currentIndex, setCurrentIndex] = useState(initialIndex)
+  const [scale, setScale] = useState(MIN_SCALE)
+  const [imageOffset, setImageOffset] = useState<Point>({ x: 0, y: 0 })
+  const [trackDragX, setTrackDragX] = useState(0)
+  const [closeDragY, setCloseDragY] = useState(0)
+  const [slideAnimating, setSlideAnimating] = useState(false)
+  const [closeAnimating, setCloseAnimating] = useState(false)
+
   const viewerRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
-  const trackRef = useRef<HTMLDivElement>(null)
-  const activeImageRef = useRef<HTMLImageElement>(null)
-  const scaleRef = useRef(1)
-  const isZoomedRef = useRef(false)
-  const panRef = useRef<Point>({ x: 0, y: 0 })
-  const dragRef = useRef<Point>({ x: 0, y: 0 })
-  const pointersRef = useRef(new Map<number, Point>())
-  const capturedPointersRef = useRef(new Set<number>())
-  const modeRef = useRef<GestureMode>('idle')
-  const animationRef = useRef<Animation>(null)
-  const pendingIndexRef = useRef<number | null>(null)
-  const gestureStartRef = useRef({
-    point: { x: 0, y: 0 },
-    pan: { x: 0, y: 0 },
-    time: 0,
-  })
+  const imageRef = useRef<HTMLImageElement>(null)
+  const activePointersRef = useRef(new Map<number, Point>())
+  const primaryPointerIdRef = useRef<number | null>(null)
+  const gestureModeRef = useRef<GestureMode>('none')
+  const gestureStartRef = useRef({ point: { x: 0, y: 0 }, image: { x: 0, y: 0 } })
   const pinchStartRef = useRef({
     distance: 0,
-    scale: 1,
-    contentPoint: { x: 0, y: 0 },
+    scale: MIN_SCALE,
+    image: { x: 0, y: 0 },
+    center: { x: 0, y: 0 },
   })
-  const lastTapRef = useRef<{ point: Point; time: number } | null>(null)
-  const tapTimerRef = useRef<number | null>(null)
-  const rafRef = useRef<number | null>(null)
+  const lastTapRef = useRef<{ time: number; point: Point } | null>(null)
+  const suppressClickUntilRef = useRef(0)
+  const scaleRef = useRef(scale)
+  const imageOffsetRef = useRef(imageOffset)
+  const trackDragXRef = useRef(trackDragX)
+  const closeDragYRef = useRef(closeDragY)
+  const animationTimerRef = useRef<number | null>(null)
 
-  const clearTap = () => {
-    if (tapTimerRef.current !== null) window.clearTimeout(tapTimerRef.current)
-    tapTimerRef.current = null
-    lastTapRef.current = null
-  }
+  scaleRef.current = scale
+  imageOffsetRef.current = imageOffset
+  trackDragXRef.current = trackDragX
+  closeDragYRef.current = closeDragY
 
-  const releaseCaptures = () => {
-    const stage = stageRef.current
-    if (stage) {
-      capturedPointersRef.current.forEach((pointerId) => {
-        if (stage.hasPointerCapture(pointerId)) stage.releasePointerCapture(pointerId)
-      })
-    }
-    capturedPointersRef.current.clear()
-  }
+  const urls = useMemo(() => {
+    const map = new Map<string, string>()
+    photos.forEach((item) => map.set(item.id, URL.createObjectURL(item.blob)))
+    return map
+  }, [photos])
 
-  const renderTransforms = () => {
-    rafRef.current = null
-    if (activeImageRef.current) {
-      activeImageRef.current.style.transform =
-        `translate3d(${panRef.current.x}px, ${panRef.current.y}px, 0) scale(${scaleRef.current})`
-    }
-    if (viewerRef.current) {
-      const opacity = clamp(1 - dragRef.current.y / 420, 0.28, 1)
-      viewerRef.current.style.backgroundColor = `rgba(0, 0, 0, ${opacity})`
-    }
-    if (trackRef.current) {
-      trackRef.current.style.transform = `translate3d(${dragRef.current.x}px, 0, 0)`
-    }
-  }
-
-  const scheduleRender = () => {
-    if (rafRef.current === null) rafRef.current = requestAnimationFrame(renderTransforms)
-  }
-
-  const setImageTransition = (image: string) => {
-    if (activeImageRef.current) activeImageRef.current.style.transition = image
-  }
-
-  const cleanupGestureState = () => {
-    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
-    rafRef.current = null
-    releaseCaptures()
-    clearTap()
-    scaleRef.current = 1
-    isZoomedRef.current = false
-    panRef.current = { x: 0, y: 0 }
-    dragRef.current = { x: 0, y: 0 }
-    pointersRef.current.clear()
-    modeRef.current = 'idle'
-    animationRef.current = null
-    pendingIndexRef.current = null
-  }
-
-  const normalizeVisualState = () => {
-    setImageTransition('')
-    stageRef.current
-      ?.querySelectorAll<HTMLImageElement>('.photo-viewer-image')
-      .forEach((image) => {
-        image.style.transform = 'translate3d(0, 0, 0) scale(1)'
-        image.style.transition = ''
-      })
-    if (trackRef.current) {
-      trackRef.current.style.transform = 'translate3d(0, 0, 0)'
-      trackRef.current.style.transition = ''
-    }
-  }
-
-  const resetGestureForNewPhoto = () => {
-    cleanupGestureState()
-    setIsZoomed(false)
-    normalizeVisualState()
-  }
-
-  const syncZoomedState = () => {
-    const nextIsZoomed = !canNavigatePhotos(scaleRef.current)
-    if (nextIsZoomed === isZoomedRef.current) return
-    isZoomedRef.current = nextIsZoomed
-    setIsZoomed(nextIsZoomed)
-  }
-
-  const closeViewer = () => {
-    cleanupGestureState()
-    onClose()
-  }
-
-  const requestIndexChange = (nextIndex: number) => {
-    const requestedIndex = getRequestedPhotoIndex(
-      activeIndex,
-      photos.length,
-      nextIndex,
-      scaleRef.current
-    )
-    if (requestedIndex === null) return false
-    onIndexChange(requestedIndex)
-    return true
-  }
-
-  useLayoutEffect(() => {
-    const nextUrls: Record<number, string> = {}
-    const first = Math.max(0, activeIndex - 1)
-    const last = Math.min(photos.length - 1, activeIndex + 1)
-    for (let index = first; index <= last; index += 1) {
-      const cached = urlsRef.current[index]
-      if (cached?.photoId === photos[index].id) {
-        nextUrls[index] = cached.url
-      } else {
-        if (cached) URL.revokeObjectURL(cached.url)
-        nextUrls[index] = URL.createObjectURL(photos[index].blob)
-      }
-    }
-    Object.entries(urlsRef.current).forEach(([index, cached]) => {
-      if (!(Number(index) in nextUrls)) URL.revokeObjectURL(cached.url)
-    })
-    urlsRef.current = Object.fromEntries(
-      Object.entries(nextUrls).map(([index, url]) => [
-        index,
-        { photoId: photos[Number(index)].id, url },
-      ])
-    )
-    setUrls(nextUrls)
-  }, [activeIndex, photos])
-
-  useLayoutEffect(() => {
-    resetGestureForNewPhoto()
-    setImageLoading(true)
-  }, [activeIndex])
-
-  useEffect(() => () => {
-    Object.values(urlsRef.current).forEach(({ url }) => URL.revokeObjectURL(url))
-    urlsRef.current = {}
-  }, [])
+  useEffect(() => () => urls.forEach((url) => URL.revokeObjectURL(url)), [urls])
 
   useEffect(() => {
-    ;[activeIndex - 1, activeIndex + 1].forEach((index) => {
-      const url = urls[index]
-      if (!url) return
-      const image = new Image()
-      image.src = url
-      void image.decode?.().catch(() => undefined)
-    })
-  }, [activeIndex, urls])
-
-  useEffect(() => () => {
-    Object.values(urlsRef.current).forEach(({ url }) => URL.revokeObjectURL(url))
-    urlsRef.current = {}
-  }, [])
-
-  useEffect(() => {
-    const previousOverflow = document.body.style.overflow
+    const oldOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     viewerRef.current?.focus()
     return () => {
-      document.body.style.overflow = previousOverflow
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
-      rafRef.current = null
-      releaseCaptures()
-      clearTap()
-      pointersRef.current.clear()
-      modeRef.current = 'idle'
-      animationRef.current = null
-      pendingIndexRef.current = null
+      document.body.style.overflow = oldOverflow
+      if (animationTimerRef.current !== null) window.clearTimeout(animationTimerRef.current)
     }
   }, [])
+
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (modeRef.current === 'animating') return
-      if (event.key === 'Escape') closeViewer()
-      else if (event.key === 'ArrowLeft') requestIndexChange(activeIndex - 1)
-      else if (event.key === 'ArrowRight') requestIndexChange(activeIndex + 1)
+    if (photos.length === 0) {
+      onClose()
+      return
     }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [activeIndex, onClose, onIndexChange, photos.length])
+    setCurrentIndex((index) => Math.min(index, photos.length - 1))
+  }, [photos.length, onClose])
 
-  if (!photo) return null
+  const photo = photos[currentIndex]
+  const stageWidth = stageRef.current?.clientWidth || window.innerWidth
+  const viewerOpacity = Math.max(
+    0.3,
+    1 - closeDragY / Math.max(420, window.innerHeight)
+  )
 
-  const getContainedImageSize = () => {
-    const stage = stageRef.current
-    const image = activeImageRef.current
-    if (!stage || !image?.naturalWidth || !image.naturalHeight) return { width: 0, height: 0 }
-    const imageRatio = image.naturalWidth / image.naturalHeight
-    const stageRatio = stage.clientWidth / stage.clientHeight
-    return imageRatio > stageRatio
-      ? { width: stage.clientWidth, height: stage.clientWidth / imageRatio }
-      : { width: stage.clientHeight * imageRatio, height: stage.clientHeight }
+  const clearAnimationTimer = () => {
+    if (animationTimerRef.current !== null) window.clearTimeout(animationTimerRef.current)
+    animationTimerRef.current = null
   }
 
-  const constrainPan = (pan: Point, scale: number) => {
+  const resetZoom = () => {
+    setScale(MIN_SCALE)
+    setImageOffset({ x: 0, y: 0 })
+  }
+
+  const syncTrack = (value: number) => {
+    trackDragXRef.current = value
+    setTrackDragX(value)
+  }
+
+  const syncClose = (value: number) => {
+    closeDragYRef.current = value
+    setCloseDragY(value)
+  }
+
+  const finishClose = () => {
+    clearAnimationTimer()
+    setCloseAnimating(true)
+    syncClose(window.innerHeight)
+    animationTimerRef.current = window.setTimeout(onClose, CLOSE_DURATION)
+  }
+
+  const snapCloseBack = () => {
+    clearAnimationTimer()
+    setCloseAnimating(true)
+    syncClose(0)
+    animationTimerRef.current = window.setTimeout(() => {
+      setCloseAnimating(false)
+      gestureModeRef.current = 'none'
+    }, CLOSE_DURATION)
+  }
+
+  const changePhoto = (direction: -1 | 1) => {
+    const nextIndex = currentIndex + direction
+    if (nextIndex < 0 || nextIndex >= photos.length || scaleRef.current > SCALE_EPSILON) return
+    clearAnimationTimer()
+    setSlideAnimating(true)
+    syncTrack(direction > 0 ? -stageWidth : stageWidth)
+    animationTimerRef.current = window.setTimeout(() => {
+      setCurrentIndex(nextIndex)
+      onIndexChange(nextIndex)
+      resetZoom()
+      setSlideAnimating(false)
+      syncTrack(0)
+      gestureModeRef.current = 'none'
+    }, SLIDE_DURATION)
+  }
+
+  const snapTrackBack = () => {
+    clearAnimationTimer()
+    setSlideAnimating(true)
+    syncTrack(0)
+    animationTimerRef.current = window.setTimeout(() => {
+      setSlideAnimating(false)
+      gestureModeRef.current = 'none'
+    }, SLIDE_DURATION)
+  }
+
+  const getPanBounds = (nextScale: number) => {
     const stage = stageRef.current
-    const image = getContainedImageSize()
-    if (!stage || !image.width) return { x: 0, y: 0 }
-    const bounds = getPanBounds(
-      image.width,
-      image.height,
-      stage.clientWidth,
-      stage.clientHeight,
-      scale
-    )
+    const image = imageRef.current
+    if (!stage || !image) return { x: 0, y: 0 }
+    const baseWidth = Math.min(image.naturalWidth, stage.clientWidth)
+    const baseHeight = Math.min(image.naturalHeight, stage.clientHeight)
     return {
-      x: clamp(pan.x, -bounds.x, bounds.x),
-      y: clamp(pan.y, -bounds.y, bounds.y),
+      x: Math.max(0, (baseWidth * nextScale - stage.clientWidth) / 2),
+      y: Math.max(0, (baseHeight * nextScale - stage.clientHeight) / 2),
+    }
+  }
+
+  const constrainOffset = (point: Point, nextScale: number): Point => {
+    const bounds = getPanBounds(nextScale)
+    return {
+      x: clamp(point.x, -bounds.x, bounds.x),
+      y: clamp(point.y, -bounds.y, bounds.y),
+    }
+  }
+
+  const applyDoubleTap = (point: Point) => {
+    gestureModeRef.current = 'doubletap'
+    suppressClickUntilRef.current = Date.now() + 500
+    if (scaleRef.current > SCALE_EPSILON) {
+      resetZoom()
+    } else {
+      const rect = stageRef.current?.getBoundingClientRect()
+      const center = rect
+        ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+        : point
+      const nextOffset = constrainOffset(
+        {
+          x: (center.x - point.x) * (DOUBLE_TAP_SCALE - 1),
+          y: (center.y - point.y) * (DOUBLE_TAP_SCALE - 1),
+        },
+        DOUBLE_TAP_SCALE
+      )
+      setScale(DOUBLE_TAP_SCALE)
+      setImageOffset(nextOffset)
     }
   }
 
   const startPinch = () => {
-    const [first, second] = [...pointersRef.current.values()]
-    const stage = stageRef.current
-    if (!first || !second || !stage) return
-    const midpoint = getMidpoint(first, second)
-    const rect = stage.getBoundingClientRect()
-    const centered = {
-      x: midpoint.x - rect.left - stage.clientWidth / 2,
-      y: midpoint.y - rect.top - stage.clientHeight / 2,
-    }
-    modeRef.current = 'pinch'
-    dragRef.current = { x: 0, y: 0 }
+    const points = [...activePointersRef.current.values()]
+    if (points.length < 2) return
+    const center = midpoint(points[0], points[1])
     pinchStartRef.current = {
-      distance: getDistance(first, second),
+      distance: distance(points[0], points[1]),
       scale: scaleRef.current,
-      contentPoint: {
-        x: (centered.x - panRef.current.x) / scaleRef.current,
-        y: (centered.y - panRef.current.y) / scaleRef.current,
-      },
+      image: imageOffsetRef.current,
+      center,
     }
-    scheduleRender()
+    gestureModeRef.current = 'pinch'
   }
 
-  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0 || modeRef.current === 'animating') return
-    if (event.target instanceof Element && event.target.closest('button, select, label')) return
-    if (
-      pointersRef.current.size === 0 &&
-      isBaseScale(scaleRef.current) &&
-      (event.clientX < EDGE_GESTURE_WIDTH ||
-        event.clientX > window.innerWidth - EDGE_GESTURE_WIDTH)
-    ) return
+  const capturePointer = (event: ReactPointerEvent<HTMLDivElement>) => {
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch {
+      // Some Android WebViews reject capture; pointer tracking still works.
+    }
+  }
 
-    clearTapIfGestureIsStale()
-    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
-    event.currentTarget.setPointerCapture(event.pointerId)
-    capturedPointersRef.current.add(event.pointerId)
-    setImageTransition('')
-    if (pointersRef.current.size === 2) {
+  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (slideAnimating || closeAnimating) return
+    capturePointer(event)
+    const point = { x: event.clientX, y: event.clientY }
+    activePointersRef.current.set(event.pointerId, point)
+
+    if (activePointersRef.current.size === 2) {
+      lastTapRef.current = null
       startPinch()
       return
     }
-    modeRef.current = isBaseScale(scaleRef.current) ? 'pending' : 'pan'
-    gestureStartRef.current = {
-      point: { x: event.clientX, y: event.clientY },
-      pan: { ...panRef.current },
-      time: performance.now(),
-    }
-  }
 
-  const clearTapIfGestureIsStale = () => {
+    const lastTap = lastTapRef.current
     if (
-      lastTapRef.current &&
-      performance.now() - lastTapRef.current.time > DOUBLE_TAP_DELAY
-    ) clearTap()
-  }
-
-  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    if (!pointersRef.current.has(event.pointerId)) return
-    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
-
-    if (modeRef.current === 'pinch' && pointersRef.current.size >= 2) {
-      const [first, second] = [...pointersRef.current.values()]
-      const stage = stageRef.current
-      if (!first || !second || !stage) return
-      const scale = clamp(
-        pinchStartRef.current.scale *
-          getDistance(first, second) / pinchStartRef.current.distance,
-        1,
-        MAX_SCALE
-      )
-      const midpoint = getMidpoint(first, second)
-      const rect = stage.getBoundingClientRect()
-      const centered = {
-        x: midpoint.x - rect.left - stage.clientWidth / 2,
-        y: midpoint.y - rect.top - stage.clientHeight / 2,
-      }
-      scaleRef.current = scale
-      panRef.current = constrainPan({
-        x: centered.x - pinchStartRef.current.contentPoint.x * scale,
-        y: centered.y - pinchStartRef.current.contentPoint.y * scale,
-      }, scale)
-      scheduleRender()
-      return
-    }
-
-    const deltaX = event.clientX - gestureStartRef.current.point.x
-    const deltaY = event.clientY - gestureStartRef.current.point.y
-    if (modeRef.current === 'pending') {
-      modeRef.current = chooseDragMode(scaleRef.current, deltaX, deltaY)
-      if (modeRef.current !== 'pending') clearTap()
-    }
-    if (modeRef.current === 'pan') {
-      dragRef.current = { x: 0, y: 0 }
-      panRef.current = constrainPan({
-        x: gestureStartRef.current.pan.x + deltaX,
-        y: gestureStartRef.current.pan.y + deltaY,
-      }, scaleRef.current)
-    } else if (modeRef.current === 'horizontalSwipe') {
-      const stageWidth = stageRef.current?.clientWidth ?? window.innerWidth
-      const isPastStart = activeIndex === 0 && deltaX > 0
-      const isPastEnd = activeIndex === photos.length - 1 && deltaX < 0
-      dragRef.current = {
-        x: isPastStart || isPastEnd
-          ? deltaX * 0.25
-          : clamp(deltaX, -stageWidth * 0.95, stageWidth * 0.95),
-        y: 0,
-      }
-    } else if (modeRef.current === 'verticalDismiss') {
-      dragRef.current = { x: 0, y: Math.max(0, deltaY) }
-    }
-    scheduleRender()
-  }
-
-  const applyDoubleTap = (point: Point) => {
-    const nextScale = getDoubleTapScale(scaleRef.current)
-    setImageTransition(IMAGE_TRANSITION)
-    animationRef.current = 'doubleTap'
-    if (nextScale === 1) {
-      scaleRef.current = 1
-      panRef.current = { x: 0, y: 0 }
-    } else {
-      const stage = stageRef.current
-      if (!stage) return
-      const rect = stage.getBoundingClientRect()
-      const centered = {
-        x: point.x - rect.left - stage.clientWidth / 2,
-        y: point.y - rect.top - stage.clientHeight / 2,
-      }
-      scaleRef.current = DOUBLE_TAP_SCALE
-      panRef.current = constrainPan({
-        x: centered.x * (1 - DOUBLE_TAP_SCALE),
-        y: centered.y * (1 - DOUBLE_TAP_SCALE),
-      }, DOUBLE_TAP_SCALE)
-    }
-    syncZoomedState()
-    dragRef.current = { x: 0, y: 0 }
-    scheduleRender()
-  }
-
-  const registerTap = (point: Point) => {
-    const now = performance.now()
-    const previous = lastTapRef.current
-    if (previous && now - previous.time <= DOUBLE_TAP_DELAY && getDistance(previous.point, point) <= 32) {
-      clearTap()
+      lastTap &&
+      Date.now() - lastTap.time <= DOUBLE_TAP_MS &&
+      distance(lastTap.point, point) <= DOUBLE_TAP_DISTANCE
+    ) {
+      lastTapRef.current = null
       applyDoubleTap(point)
       return
     }
-    clearTap()
-    lastTapRef.current = { point, time: now }
-    tapTimerRef.current = window.setTimeout(() => {
-      setControlsVisible((visible) => !visible)
-      lastTapRef.current = null
-      tapTimerRef.current = null
-    }, DOUBLE_TAP_DELAY)
+
+    primaryPointerIdRef.current = event.pointerId
+    gestureStartRef.current = { point, image: imageOffsetRef.current }
+    gestureModeRef.current = scaleRef.current > SCALE_EPSILON ? 'pan' : 'pending'
   }
 
-  const releasePointer = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    }
-    capturedPointersRef.current.delete(event.pointerId)
-    pointersRef.current.delete(event.pointerId)
-  }
+  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!activePointersRef.current.has(event.pointerId)) return
+    const point = { x: event.clientX, y: event.clientY }
+    activePointersRef.current.set(event.pointerId, point)
 
-  const handlePointerEnd = (
-    event: PointerEvent<HTMLDivElement>,
-    cancelled = false
-  ) => {
-    if (!pointersRef.current.has(event.pointerId)) return
-    const gesture = modeRef.current
-    const deltaX = event.clientX - gestureStartRef.current.point.x
-    const deltaY = event.clientY - gestureStartRef.current.point.y
-    const elapsed = performance.now() - gestureStartRef.current.time
-    releasePointer(event)
-
-    if (gesture === 'pinch' && pointersRef.current.size > 0) return
-    releaseCaptures()
-    pointersRef.current.clear()
-
-    if (cancelled) {
-      clearTap()
-      modeRef.current = 'idle'
-      animationRef.current = null
-      pendingIndexRef.current = null
-      dragRef.current = { x: 0, y: 0 }
-      panRef.current = constrainPan(panRef.current, scaleRef.current)
-      setImageTransition('')
-      scheduleRender()
+    if (activePointersRef.current.size >= 2) {
+      if (gestureModeRef.current !== 'pinch') startPinch()
+      const points = [...activePointersRef.current.values()]
+      const start = pinchStartRef.current
+      const center = midpoint(points[0], points[1])
+      const nextScale = clamp(
+        start.scale * (distance(points[0], points[1]) / Math.max(1, start.distance)),
+        MIN_SCALE,
+        MAX_SCALE
+      )
+      const ratio = nextScale / start.scale
+      const nextOffset = constrainOffset(
+        {
+          x: center.x - start.center.x + start.image.x * ratio,
+          y: center.y - start.center.y + start.image.y * ratio,
+        },
+        nextScale
+      )
+      setScale(nextScale)
+      setImageOffset(nextScale <= SCALE_EPSILON ? { x: 0, y: 0 } : nextOffset)
       return
     }
 
-    const wasTap =
-      Math.abs(deltaX) <= TAP_MOVE_TOLERANCE &&
-      Math.abs(deltaY) <= TAP_MOVE_TOLERANCE &&
-      elapsed < 350
+    if (event.pointerId !== primaryPointerIdRef.current) return
+    const dx = point.x - gestureStartRef.current.point.x
+    const dy = point.y - gestureStartRef.current.point.y
+    let mode = gestureModeRef.current
 
-    // A stationary pointer at a zoomed scale starts in pan mode, but it is
-    // still a tap. Handling it here makes the second double tap deterministic.
-    if (gesture === 'pan' && wasTap) {
-      modeRef.current = 'idle'
-      registerTap({ x: event.clientX, y: event.clientY })
-      return
+    if (mode === 'pending' && Math.hypot(dx, dy) >= GESTURE_LOCK) {
+      if (dy > 0 && Math.abs(dy) > Math.abs(dx) * 1.12) mode = 'close'
+      else if (Math.abs(dx) > Math.abs(dy) * 1.05) mode = 'swipe'
+      gestureModeRef.current = mode
     }
 
-    if (gesture === 'pinch' || gesture === 'pan') {
-      if (isBaseScale(scaleRef.current)) {
-        scaleRef.current = 1
-        panRef.current = { x: 0, y: 0 }
-      } else {
-        panRef.current = constrainPan(panRef.current, scaleRef.current)
+    if (mode === 'swipe') {
+      const atEdge = (dx > 0 && currentIndex === 0) || (dx < 0 && currentIndex === photos.length - 1)
+      syncTrack(atEdge ? dx * 0.28 : dx)
+    } else if (mode === 'close') {
+      syncClose(Math.max(0, dy))
+    } else if (mode === 'pan') {
+      setImageOffset(
+        constrainOffset(
+          {
+            x: gestureStartRef.current.image.x + dx,
+            y: gestureStartRef.current.image.y + dy,
+          },
+          scaleRef.current
+        )
+      )
+    }
+  }
+
+  const endPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const wasPrimary = event.pointerId === primaryPointerIdRef.current
+    activePointersRef.current.delete(event.pointerId)
+
+    if (gestureModeRef.current === 'pinch') {
+      if (activePointersRef.current.size === 1) {
+        const [remainingId, remainingPoint] = [...activePointersRef.current.entries()][0]
+        primaryPointerIdRef.current = remainingId
+        gestureStartRef.current = { point: remainingPoint, image: imageOffsetRef.current }
+        gestureModeRef.current = scaleRef.current > SCALE_EPSILON ? 'pan' : 'pending'
+      } else if (activePointersRef.current.size === 0) {
+        gestureModeRef.current = 'none'
       }
-      syncZoomedState()
-      modeRef.current = 'idle'
-      setImageTransition(IMAGE_TRANSITION)
-      scheduleRender()
       return
     }
+    if (!wasPrimary) return
 
-    if (gesture === 'pending' && wasTap) {
-      modeRef.current = 'idle'
-      registerTap({ x: event.clientX, y: event.clientY })
-      return
-    }
-    clearTap()
-
-    if (
-      gesture === 'verticalDismiss' &&
-      shouldDismiss(scaleRef.current, deltaY, elapsed)
-    ) {
-      closeViewer()
-      return
-    }
-
-    if (gesture === 'horizontalSwipe') {
-      const nextIndex = getSwipeIndex(activeIndex, photos.length, deltaX)
-      if (nextIndex !== null) {
-        pendingIndexRef.current = nextIndex
-        modeRef.current = 'animating'
-        animationRef.current = 'snapImage'
-        if (trackRef.current) trackRef.current.style.transition = IMAGE_TRANSITION
-        dragRef.current = {
-          x: nextIndex > activeIndex
-            ? -(stageRef.current?.clientWidth ?? window.innerWidth)
-            : stageRef.current?.clientWidth ?? window.innerWidth,
-          y: 0,
-        }
-        scheduleRender()
-        return
+    const mode = gestureModeRef.current
+    const movement = distance(gestureStartRef.current.point, {
+      x: event.clientX,
+      y: event.clientY,
+    })
+    if (mode === 'swipe') {
+      if (Math.abs(trackDragXRef.current) >= SWIPE_THRESHOLD) {
+        changePhoto(trackDragXRef.current < 0 ? 1 : -1)
       }
+      else snapTrackBack()
+    } else if (mode === 'close') {
+      if (closeDragYRef.current >= CLOSE_THRESHOLD) finishClose()
+      else snapCloseBack()
+    } else if (mode === 'pending' && movement < GESTURE_LOCK) {
+      lastTapRef.current = {
+        time: Date.now(),
+        point: { x: event.clientX, y: event.clientY },
+      }
+      gestureModeRef.current = 'none'
+    } else if (mode !== 'doubletap') {
+      gestureModeRef.current = 'none'
     }
-    pendingIndexRef.current = null
-    modeRef.current = 'animating'
-    animationRef.current = 'snapImage'
-    if (trackRef.current) trackRef.current.style.transition = IMAGE_TRANSITION
-    dragRef.current = { x: 0, y: 0 }
-    scheduleRender()
+    primaryPointerIdRef.current = null
   }
 
-  const handleTrackTransitionEnd = (event: TransitionEvent<HTMLDivElement>) => {
-    if (event.target !== event.currentTarget || event.propertyName !== 'transform') return
-    const nextIndex = pendingIndexRef.current
-    pendingIndexRef.current = null
-    animationRef.current = null
-    modeRef.current = 'idle'
-    if (nextIndex !== null) {
-      onIndexChange(nextIndex)
-      return
-    }
-    if (trackRef.current) trackRef.current.style.transition = ''
+  const handlePointerCancel = () => {
+    activePointersRef.current.clear()
+    primaryPointerIdRef.current = null
+    lastTapRef.current = null
+    gestureModeRef.current = 'none'
+    syncTrack(0)
+    syncClose(0)
+    setSlideAnimating(false)
+    setCloseAnimating(false)
   }
 
-  const handleImageTransitionEnd = (event: TransitionEvent<HTMLImageElement>) => {
-    if (event.target !== event.currentTarget || event.propertyName !== 'transform') return
-    if (animationRef.current === 'doubleTap') animationRef.current = null
-    if (modeRef.current === 'idle') setImageTransition('')
+  const handleWheel = (delta: number) => {
+    const nextScale = clamp(scaleRef.current + (delta > 0 ? -0.5 : 0.5), MIN_SCALE, MAX_SCALE)
+    setScale(nextScale)
+    setImageOffset(nextScale === MIN_SCALE ? { x: 0, y: 0 } : constrainOffset(imageOffsetRef.current, nextScale))
   }
 
-  const handleDelete = async () => {
-    if (!await onDelete(photo)) return
-    if (photos.length === 1) closeViewer()
-    else if (!canNavigatePhotos(scaleRef.current)) closeViewer()
-    else if (activeIndex === photos.length - 1) requestIndexChange(activeIndex - 1)
-  }
+  const previous = currentIndex > 0 ? photos[currentIndex - 1] : undefined
+  const next = currentIndex < photos.length - 1 ? photos[currentIndex + 1] : undefined
+  const slides = [previous, photo, next]
+  const trackTransition = slideAnimating
+    ? `transform ${SLIDE_DURATION}ms ${SLIDE_EASING}`
+    : 'none'
 
-  const controlsClass = `photo-viewer-controls${controlsVisible ? ' is-visible' : ''}`
+  if (!photo) return null
 
   return (
     <div
       ref={viewerRef}
-      className="photo-viewer"
+      className="field-viewer"
+      style={{
+        opacity: viewerOpacity,
+        transform: `translate3d(0, ${closeDragY}px, 0)`,
+        transition: closeAnimating
+          ? `transform ${CLOSE_DURATION}ms ${SLIDE_EASING}, opacity ${CLOSE_DURATION}ms linear`
+          : 'none',
+      }}
       role="dialog"
       aria-modal="true"
       aria-label={`${boundaryPointName}の写真`}
       tabIndex={-1}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') onClose()
+        else if (event.key === 'ArrowLeft') changePhoto(-1)
+        else if (event.key === 'ArrowRight') changePhoto(1)
+      }}
+      onDoubleClick={(event) => {
+        if (Date.now() < suppressClickUntilRef.current) event.preventDefault()
+      }}
     >
-      <header className={`${controlsClass} photo-viewer-header`}>
-        <button type="button" className="photo-viewer-icon-button" aria-label="写真を閉じる" onClick={closeViewer}>×</button>
-        <strong className="photo-viewer-title">{boundaryPointName}</strong>
-        <span className="photo-viewer-position" aria-live="polite">{activeIndex + 1} / {photos.length}</span>
+      <header className="field-viewer-header">
+        <button className="field-viewer-close" type="button" onClick={onClose} aria-label="閉じる">×</button>
+        <div className="field-viewer-title">
+          <strong>{boundaryPointName}</strong>
+          <span>{currentIndex + 1} / {photos.length}</span>
+        </div>
+        <div className="field-viewer-zoom" aria-label="ズーム操作">
+          <button type="button" onClick={() => handleWheel(1)} aria-label="縮小">−</button>
+          <span>{Math.round(scale * 100)}%</span>
+          <button type="button" onClick={() => handleWheel(-1)} aria-label="拡大">＋</button>
+        </div>
       </header>
-      <div
+
+      <main
         ref={stageRef}
-        className="photo-viewer-stage"
+        className={`field-viewer-stage${scale > SCALE_EPSILON ? ' zoomed' : ''}`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerEnd}
-        onPointerCancel={(event) => handlePointerEnd(event, true)}
+        onPointerUp={endPointer}
+        onPointerCancel={handlePointerCancel}
+        onWheel={(event) => {
+          event.preventDefault()
+          handleWheel(event.deltaY)
+        }}
       >
         <div
-          ref={trackRef}
-          className="photo-viewer-track"
-          onTransitionEnd={handleTrackTransitionEnd}
+          className="field-viewer-track"
+          style={{
+            width: `${stageWidth * 3}px`,
+            transform: `translate3d(${-stageWidth + trackDragX}px, 0, 0)`,
+            transition: trackTransition,
+          }}
         >
-          {([-1, 0, 1] as const).map((slotOffset) => {
-            const index = activeIndex + slotOffset
-            const slidePhoto = photos[index]
-            const url = urls[index]
-            const isActive = slotOffset === 0
-            return (
-              <div
-                key={slotOffset}
-                className="photo-viewer-slide"
-                style={{ transform: `translate3d(${getSlideOffset(slotOffset, 0)}%, 0, 0)` }}
-                aria-hidden={!isActive || !slidePhoto}
-              >
+          {slides.map((item, slot) => (
+            <div className="field-viewer-slide" style={{ width: `${stageWidth}px` }} key={item?.id ?? `empty-${slot}`}>
+              {item && (
                 <img
-                  ref={isActive ? activeImageRef : undefined}
-                  className="photo-viewer-image"
-                  src={url}
-                  alt={isActive ? slidePhoto?.fileName ?? '' : ''}
-                  draggable="false"
-                  onLoad={isActive ? () => setImageLoading(false) : undefined}
-                  onError={isActive ? () => setImageLoading(false) : undefined}
-                  onTransitionEnd={isActive ? handleImageTransitionEnd : undefined}
+                  ref={slot === 1 ? imageRef : undefined}
+                  className={slot === 1 ? 'field-viewer-image' : 'field-viewer-neighbor-image'}
+                  src={urls.get(item.id)}
+                  alt={item.fileName}
+                  draggable={false}
+                  style={slot === 1 ? {
+                    transform: `translate3d(${imageOffset.x}px, ${imageOffset.y}px, 0) scale(${scale})`,
+                  } : undefined}
                 />
-              </div>
-            )
-          })}
-          {imageLoading && (
-            <div className="photo-viewer-loading" role="status">読み込み中…</div>
-          )}
+              )}
+            </div>
+          ))}
         </div>
-        {!isZoomed && (
-          <div className={`${controlsClass} photo-viewer-navigation`}>
-            <button type="button" className="photo-viewer-nav photo-viewer-nav-previous" aria-label="前の写真" disabled={activeIndex === 0} onClick={() => requestIndexChange(activeIndex - 1)}>‹</button>
-            <button type="button" className="photo-viewer-nav photo-viewer-nav-next" aria-label="次の写真" disabled={activeIndex === photos.length - 1} onClick={() => requestIndexChange(activeIndex + 1)}>›</button>
-          </div>
-        )}
-      </div>
-      <footer className={`${controlsClass} photo-viewer-footer`}>
-        <label className="photo-viewer-category">
+      </main>
+
+      {scale <= SCALE_EPSILON && photos.length > 1 && (
+        <>
+          {currentIndex > 0 && <button className="field-viewer-arrow field-viewer-arrow-left" type="button" onClick={() => changePhoto(-1)} aria-label="前の写真">‹</button>}
+          {currentIndex < photos.length - 1 && <button className="field-viewer-arrow field-viewer-arrow-right" type="button" onClick={() => changePhoto(1)} aria-label="次の写真">›</button>}
+        </>
+      )}
+
+      <footer className="field-viewer-footer">
+        <span className="field-viewer-file-name" title={photo.fileName}>{photo.fileName}</span>
+        <label className="field-viewer-category">
           <span>写真種別</span>
-          <select value={photo.category || ''} onChange={(event) => void onCategoryChange(photo, event.target.value)}>
-            <option value="">未分類</option>
+          <select value={photo.category ?? ''} onChange={(event) => void onCategoryChange(photo, event.target.value)}>
+            <option value="">未選択</option>
             {categories.map((category) => <option key={category} value={category}>{category}</option>)}
           </select>
         </label>
-        <button type="button" className="photo-viewer-delete" onClick={() => void handleDelete()}>削除</button>
+        <button
+          className="field-viewer-delete"
+          type="button"
+          onClick={async () => {
+            const deleted = await onDelete(photo)
+            if (deleted && photos.length === 1) onClose()
+          }}
+        >削除</button>
       </footer>
-  </div>
+    </div>
   )
 }
 
