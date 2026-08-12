@@ -152,6 +152,9 @@ function App() {
   const [photos, setPhotos] =
     useState<BoundaryPhoto[]>([])
 
+  const [capturedPhotoIds, setCapturedPhotoIds] =
+    useState<Set<string>>(() => new Set())
+
   const [selectedPhotoIndex, setSelectedPhotoIndex] =
     useState<number | null>(null)
 
@@ -589,25 +592,21 @@ function App() {
    * 写真
    */
 
-  const handlePhotoSelected = async (
-    event: ChangeEvent<HTMLInputElement>
-  ) => {
+  const saveSelectedPhotos = async (
+    files: FileList
+  ): Promise<BoundaryPhoto[]> => {
     if (
       !selectedProject ||
       !selectedBoundaryPoint
     ) {
-      return
+      return []
     }
 
-    const files = event.target.files
+    const savedPhotos: BoundaryPhoto[] = []
+    const failedFileNames: string[] = []
+    const createdAt = Date.now()
 
-    if (!files || files.length === 0) {
-      return
-    }
-
-    for (
-      const file of Array.from(files)
-    ) {
+    for (const [index, file] of Array.from(files).entries()) {
       const photo: BoundaryPhoto = {
         id: crypto.randomUUID(),
 
@@ -626,14 +625,16 @@ function App() {
 
         blob: file,
 
-        createdAt:
-          new Date().toISOString(),
+        createdAt: new Date(createdAt + index).toISOString(),
       }
 
-      await savePhoto(photo)
+      try {
+        await savePhoto(photo)
+        savedPhotos.push(photo)
+      } catch {
+        failedFileNames.push(file.name)
+      }
     }
-
-    event.target.value = ''
 
     await loadPhotos(
       selectedBoundaryPoint.id
@@ -642,6 +643,97 @@ function App() {
     await loadBoundaryPoints(
       selectedProject.id
     )
+
+    if (failedFileNames.length > 0) {
+      window.alert(
+        `${failedFileNames.length}枚の写真を保存できませんでした。\n${failedFileNames.join('\n')}`
+      )
+    }
+
+    return savedPhotos
+  }
+
+  const handlePhotoSelected = async (
+    event: ChangeEvent<HTMLInputElement>,
+    source: 'camera' | 'library'
+  ) => {
+    const input = event.currentTarget
+    const files = input.files
+
+    if (!files || files.length === 0) {
+      input.value = ''
+      return
+    }
+
+    try {
+      const savedPhotos = await saveSelectedPhotos(files)
+
+      if (source === 'camera' && savedPhotos.length > 0) {
+        setCapturedPhotoIds((current) => {
+          const next = new Set(current)
+          savedPhotos.forEach((photo) => next.add(photo.id))
+          return next
+        })
+      }
+    } catch {
+      window.alert('写真を保存できませんでした。もう一度お試しください。')
+    } finally {
+      input.value = ''
+    }
+  }
+
+  const handleSavePhotoToDevice = async (
+    photo: BoundaryPhoto
+  ) => {
+    const file = new File(
+      [photo.blob],
+      photo.fileName,
+      { type: photo.fileType || photo.blob.type || 'image/jpeg' }
+    )
+
+    let canShareFile = false
+
+    try {
+      canShareFile =
+        typeof navigator.share === 'function' &&
+        typeof navigator.canShare === 'function' &&
+        navigator.canShare({ files: [file] })
+    } catch {
+      canShareFile = false
+    }
+
+    if (canShareFile) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: photo.fileName,
+        })
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          window.alert('端末への保存用共有を開始できませんでした。')
+        }
+      }
+
+      return
+    }
+
+    let downloadUrl: string | null = null
+
+    try {
+      downloadUrl = URL.createObjectURL(photo.blob)
+      const link = document.createElement('a')
+      link.href = downloadUrl
+      link.download = photo.fileName
+      link.click()
+      link.remove()
+    } catch {
+      window.alert('このブラウザでは端末への保存を開始できませんでした。')
+    } finally {
+      if (downloadUrl) {
+        const urlToRevoke = downloadUrl
+        window.setTimeout(() => URL.revokeObjectURL(urlToRevoke), 0)
+      }
+    }
   }
 
   const handleDeletePhoto = async (
@@ -663,6 +755,12 @@ function App() {
     }
 
     await deletePhoto(photo.id)
+
+    setCapturedPhotoIds((current) => {
+      const next = new Set(current)
+      next.delete(photo.id)
+      return next
+    })
 
     await loadPhotos(
       selectedBoundaryPoint.id
@@ -1212,7 +1310,7 @@ function App() {
 
             <div className="photo-category-box">
               <div className="photo-category-title">
-                撮影する写真の種類
+                追加する写真の種類
               </div>
 
               <div className="photo-category-chips">
@@ -1236,20 +1334,36 @@ function App() {
                 ))}
               </div>
 
-              <label className="photo-capture-button">
-                📷 {selectedPhotoCategory}を撮影
+              <div className="photo-add-actions">
+                <label className="photo-capture-button">
+                  📷 撮影
 
-                <input
-                  className="hidden-file-input"
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  multiple
-                  onChange={
-                    handlePhotoSelected
-                  }
-                />
-              </label>
+                  <input
+                    className="hidden-file-input"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    multiple
+                    onChange={(event) =>
+                      handlePhotoSelected(event, 'camera')
+                    }
+                  />
+                </label>
+
+                <label className="photo-library-button">
+                  🖼 写真から選択
+
+                  <input
+                    className="hidden-file-input"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(event) =>
+                      handlePhotoSelected(event, 'library')
+                    }
+                  />
+                </label>
+              </div>
             </div>
 
             {photos.length === 0 ? (
@@ -1263,7 +1377,7 @@ function App() {
                 </p>
 
                 <span>
-                  写真種別を選んで撮影してください
+                  写真種別を選んで撮影または追加してください
                 </span>
               </div>
             ) : (
@@ -1325,7 +1439,18 @@ function App() {
                             </option>
                           </select>
 
+                          {capturedPhotoIds.has(photo.id) && (
+                            <button
+                              type="button"
+                              className="photo-device-save-button"
+                              onClick={() => handleSavePhotoToDevice(photo)}
+                            >
+                              端末にも保存
+                            </button>
+                          )}
+
                           <button
+                            type="button"
                             className="photo-delete-button"
                             onClick={() =>
                               handleDeletePhoto(
