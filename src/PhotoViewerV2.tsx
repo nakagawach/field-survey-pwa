@@ -108,12 +108,10 @@ function PhotoViewerV2({
   useEffect(() => () => urls.forEach((url) => URL.revokeObjectURL(url)), [urls])
 
   useEffect(() => {
-    const oldOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    // viewerRef.current?.focus()
     return () => {
-      document.body.style.overflow = oldOverflow
-      if (animationTimerRef.current !== null) window.clearTimeout(animationTimerRef.current)
+      if (animationTimerRef.current !== null) {
+        window.clearTimeout(animationTimerRef.current)
+      }
     }
   }, [])
 
