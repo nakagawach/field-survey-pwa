@@ -14,6 +14,7 @@ import {
   getMidpoint,
   getPanBounds,
   getRequestedPhotoIndex,
+  getSlideOffset,
   getSwipeIndex,
   isBaseScale,
   shouldDismiss,
@@ -54,6 +55,7 @@ function PhotoViewer({
   const [urls, setUrls] = useState<Record<number, string>>({})
   const [controlsVisible, setControlsVisible] = useState(true)
   const [isZoomed, setIsZoomed] = useState(false)
+  const urlsRef = useRef<Record<number, { photoId: string; url: string }>>({})
   const viewerRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
@@ -122,24 +124,38 @@ function PhotoViewer({
     if (activeImageRef.current) activeImageRef.current.style.transition = image
   }
 
-  const resetGesture = () => {
+  const cleanupGestureState = () => {
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     rafRef.current = null
     releaseCaptures()
     clearTap()
     scaleRef.current = 1
-    if (isZoomedRef.current) {
-      isZoomedRef.current = false
-      setIsZoomed(false)
-    }
+    isZoomedRef.current = false
     panRef.current = { x: 0, y: 0 }
     dragRef.current = { x: 0, y: 0 }
     pointersRef.current.clear()
     modeRef.current = 'idle'
     animationRef.current = null
     pendingIndexRef.current = null
+  }
+
+  const normalizeVisualState = () => {
     setTransitions('', '')
-    renderTransforms()
+    if (trackRef.current) {
+      trackRef.current.style.transform = 'translate3d(0, 0, 0)'
+    }
+    stageRef.current
+      ?.querySelectorAll<HTMLImageElement>('.photo-viewer-image')
+      .forEach((image) => {
+        image.style.transform = 'translate3d(0, 0, 0) scale(1)'
+        image.style.transition = ''
+      })
+  }
+
+  const resetGestureForNewPhoto = () => {
+    cleanupGestureState()
+    setIsZoomed(false)
+    normalizeVisualState()
   }
 
   const syncZoomedState = () => {
@@ -150,7 +166,7 @@ function PhotoViewer({
   }
 
   const closeViewer = () => {
-    resetGesture()
+    cleanupGestureState()
     onClose()
   }
 
@@ -162,25 +178,43 @@ function PhotoViewer({
       scaleRef.current
     )
     if (requestedIndex === null) return false
-    resetGesture()
     onIndexChange(requestedIndex)
     return true
   }
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const nextUrls: Record<number, string> = {}
     const first = Math.max(0, activeIndex - 1)
     const last = Math.min(photos.length - 1, activeIndex + 1)
     for (let index = first; index <= last; index += 1) {
-      nextUrls[index] = URL.createObjectURL(photos[index].blob)
+      const cached = urlsRef.current[index]
+      if (cached?.photoId === photos[index].id) {
+        nextUrls[index] = cached.url
+      } else {
+        if (cached) URL.revokeObjectURL(cached.url)
+        nextUrls[index] = URL.createObjectURL(photos[index].blob)
+      }
     }
+    Object.entries(urlsRef.current).forEach(([index, cached]) => {
+      if (!(Number(index) in nextUrls)) URL.revokeObjectURL(cached.url)
+    })
+    urlsRef.current = Object.fromEntries(
+      Object.entries(nextUrls).map(([index, url]) => [
+        index,
+        { photoId: photos[Number(index)].id, url },
+      ])
+    )
     setUrls(nextUrls)
-    return () => Object.values(nextUrls).forEach(URL.revokeObjectURL)
   }, [activeIndex, photos])
 
   useLayoutEffect(() => {
-    resetGesture()
+    resetGestureForNewPhoto()
   }, [activeIndex])
+
+  useEffect(() => () => {
+    Object.values(urlsRef.current).forEach(({ url }) => URL.revokeObjectURL(url))
+    urlsRef.current = {}
+  }, [])
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
@@ -196,7 +230,6 @@ function PhotoViewer({
       modeRef.current = 'idle'
       animationRef.current = null
       pendingIndexRef.current = null
-      setTransitions('', '')
     }
   }, [])
   useEffect(() => {
@@ -560,9 +593,9 @@ function PhotoViewer({
         >
           {visibleIndexes.map((index) => (
             <div
-              className="photo-viewer-slide"
+              className={`photo-viewer-slide${index === activeIndex ? ' is-active' : ''}`}
               key={photos[index].id}
-              style={{ transform: `translate3d(${(index - activeIndex) * 100}%, 0, 0)` }}
+              style={{ transform: `translate3d(${getSlideOffset(index, activeIndex)}%, 0, 0)` }}
             >
               <img
                 ref={index === activeIndex ? activeImageRef : undefined}

@@ -37,6 +37,19 @@ export const getRequestedPhotoIndex = (
     ? nextIndex
     : null
 
+export type VisualNormalizationReason =
+  | 'activeIndexChange'
+  | 'slideComplete'
+  | 'dismissComplete'
+  | 'close'
+
+export const shouldNormalizeVisualState = (
+  reason: VisualNormalizationReason
+) => reason === 'activeIndexChange'
+
+export const getSlideOffset = (index: number, activeIndex: number) =>
+  (index - activeIndex) * 100
+
 export const getDoubleTapScale = (scale: number) =>
   isBaseScale(scale) ? DOUBLE_TAP_SCALE : 1
 

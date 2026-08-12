@@ -111,10 +111,14 @@
 }
 
 .photo-viewer-slide {
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  will-change: transform;
+}
+
+.photo-viewer-slide.is-active {
+  z-index: 2;
 }
 
 .photo-viewer-image {
@@ -123,8 +127,11 @@
   height: 100%;
   object-fit: contain;
   pointer-events: none;
-  will-change: transform;
   -webkit-user-drag: none;
+}
+
+.photo-viewer-slide.is-active .photo-viewer-image {
+  will-change: transform;
 }
 
 .photo-viewer-controls {

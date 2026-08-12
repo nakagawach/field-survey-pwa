@@ -7,6 +7,8 @@ import {
   getDoubleTapScale,
   getSwipeIndex,
   getRequestedPhotoIndex,
+  getSlideOffset,
+  shouldNormalizeVisualState,
   shouldDismiss,
 } from '../src/photoViewerGestures.ts'
 
@@ -45,4 +47,25 @@ assert.equal(
   'M: returning to base scale enables navigation'
 )
 
-console.log('PhotoViewer gesture assertions passed (A-M)')
+assert.equal(
+  shouldNormalizeVisualState('slideComplete'),
+  false,
+  'N: slide completion preserves its final visual position'
+)
+assert.equal(
+  shouldNormalizeVisualState('dismissComplete'),
+  false,
+  'O: dismiss completion does not restore the photo to center'
+)
+assert.deepEqual(
+  [0, 1, 2].map((index) => getSlideOffset(index, 1)),
+  [-100, 0, 100],
+  'P: new active index positions previous/current/next correctly'
+)
+assert.equal(
+  shouldNormalizeVisualState('close'),
+  false,
+  'Q: close cleanup does not normalize visual transforms'
+)
+
+console.log('PhotoViewer gesture assertions passed (A-Q)')
