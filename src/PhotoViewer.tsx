@@ -202,6 +202,11 @@ function PhotoViewer({
     setImageLoading(true)
   }, [activeIndex])
 
+  useEffect(() => () => {
+    Object.values(urlsRef.current).forEach(({ url }) => URL.revokeObjectURL(url))
+    urlsRef.current = {}
+  }, [])
+
   useEffect(() => {
     ;[activeIndex - 1, activeIndex + 1].forEach((index) => {
       const url = urls[index]

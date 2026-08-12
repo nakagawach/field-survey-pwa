@@ -114,7 +114,6 @@
   height: 100%;
   object-fit: contain;
   pointer-events: none;
-  will-change: transform;
   -webkit-user-drag: none;
 }
 
