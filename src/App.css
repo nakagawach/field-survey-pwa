@@ -988,6 +988,18 @@ textarea {
   border: 0;
   background: transparent;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.photo-image-button:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.photo-image-button:active {
+  border-color: transparent;
+  background: transparent;
 }
 
 .photo-image-button:focus-visible {
@@ -1004,6 +1016,12 @@ textarea {
 
   object-fit: cover;
 
+  background: #eeeeee;
+}
+
+.photo-thumbnail-placeholder {
+  width: 100%;
+  aspect-ratio: 1 / 1;
   background: #eeeeee;
 }
 

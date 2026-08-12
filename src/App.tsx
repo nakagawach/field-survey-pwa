@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useState } from 'react'
 import type { ChangeEvent } from 'react'
 
 import './App.css'
@@ -44,6 +44,48 @@ const PHOTO_CATEGORIES = [
   '図面・資料',
   'その他',
 ] as const
+
+type PhotoThumbnailProps = {
+  photo: BoundaryPhoto
+  index: number
+  onOpen: (index: number) => void
+}
+
+const PhotoThumbnail = memo(function PhotoThumbnail({
+  photo,
+  index,
+  onOpen,
+}: PhotoThumbnailProps) {
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    const nextImageUrl = URL.createObjectURL(photo.blob)
+    setImageUrl(nextImageUrl)
+
+    return () => URL.revokeObjectURL(nextImageUrl)
+  }, [photo.blob])
+
+  return (
+    <button
+      type="button"
+      className="photo-image-button"
+      aria-label={`${photo.fileName}を全画面で表示`}
+      onClick={() => onOpen(index)}
+    >
+      <div className="photo-image-wrapper">
+        {imageUrl ? (
+          <img src={imageUrl} alt={photo.fileName} />
+        ) : (
+          <div className="photo-thumbnail-placeholder" aria-hidden="true" />
+        )}
+
+        <div className="photo-category-badge">
+          {photo.category || '未分類'}
+        </div>
+      </div>
+    </button>
+  )
+})
 
 const createEmptyProject = (): SurveyProject => {
   const now = new Date().toISOString()
@@ -1068,7 +1110,7 @@ function App() {
             ←
           </button>
 
-          <h1>境界点詳細</h1>
+          <h1>境界点詳細 {selectedBoundaryPoint.name}</h1>
         </header>
 
         <main className="project-container">
@@ -1227,12 +1269,7 @@ function App() {
             ) : (
               <div className="photo-grid">
                 {photos.map(
-                  (photo) => {
-                    const imageUrl =
-                      URL.createObjectURL(
-                        photo.blob
-                      )
-
+                  (photo, index) => {
                     return (
                       <div
                         className="photo-card"
@@ -1240,39 +1277,11 @@ function App() {
                           photo.id
                         }
                       >
-                        <button
-                          type="button"
-                          className="photo-image-button"
-                          aria-label={`${photo.fileName}を全画面で表示`}
-                          onClick={() =>
-                            setSelectedPhotoIndex(
-                              photos.findIndex(
-                                (item) => item.id === photo.id
-                              )
-                            )
-                          }
-                        >
-                          <div className="photo-image-wrapper">
-                            <img
-                              src={
-                                imageUrl
-                              }
-                              alt={
-                                photo.fileName
-                              }
-                              onLoad={() =>
-                                URL.revokeObjectURL(
-                                  imageUrl
-                                )
-                              }
-                            />
-
-                            <div className="photo-category-badge">
-                              {photo.category ||
-                                '未分類'}
-                            </div>
-                          </div>
-                        </button>
+                        <PhotoThumbnail
+                          photo={photo}
+                          index={index}
+                          onOpen={setSelectedPhotoIndex}
+                        />
 
                         <div className="photo-card-controls">
                           <select
