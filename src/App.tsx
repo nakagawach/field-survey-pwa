@@ -1230,7 +1230,7 @@ function App() {
 
               <button
                 className="small-button"
-                onClick={() =>
+                onPointerUp={() =>
                   handleEditBoundaryPoint(
                     selectedBoundaryPoint
                   )
@@ -1961,17 +1961,17 @@ function App() {
                     {projectProgress[
                       project.id
                     ] && (
-                      <span className="project-progress-label">
-                        調査進捗：
-                        {projectProgress[
-                          project.id
-                        ].percentage === 100
-                          ? '調査完了'
-                          : `${projectProgress[
+                        <span className="project-progress-label">
+                          調査進捗：
+                          {projectProgress[
+                            project.id
+                          ].percentage === 100
+                            ? '調査完了'
+                            : `${projectProgress[
                               project.id
                             ].percentage}%`}
-                      </span>
-                    )}
+                        </span>
+                      )}
                   </button>
 
                   <button
