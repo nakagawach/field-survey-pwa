@@ -96,24 +96,23 @@ export const calculateSurveyProgress = (
     ({ completion }) => completion.complete
   ).length
 
-  const incompleteBoundaryPoints = pointCompletion.filter(
-    ({ completion }) => !completion.complete
-  )
-
   const allBoundaryPointsComplete =
     hasBoundaryPoints &&
     completedBoundaryPoints === boundaryPoints.length
 
+  const pointStatusText = pointCompletion
+    .map(({ point, completion }) =>
+      completion.complete
+        ? `✓ ${point.name}`
+        : `! ${point.name}：${completion.missing.join('・')}`
+    )
+    .join(' ／ ')
+
   const boundaryCompletionMessage = !hasBoundaryPoints
     ? '境界点を登録すると完了チェックを開始します'
-    : allBoundaryPointsComplete
-      ? `境界点 ${completedBoundaryPoints}/${boundaryPoints.length} 完了`
-      : `境界点 ${completedBoundaryPoints}/${boundaryPoints.length} 完了（${incompleteBoundaryPoints
-          .map(
-            ({ point, completion }) =>
-              `${point.name}：${completion.missing.join('・')}`
-          )
-          .join('、')}）`
+    : `境界点 ${completedBoundaryPoints}/${boundaryPoints.length} 完了${
+        pointStatusText ? `｜${pointStatusText}` : ''
+      }`
 
   const checks: SurveyProgressCheck[] = [
     {
