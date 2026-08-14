@@ -378,29 +378,6 @@ function PhotoViewerV2({
     }
 
   /*
-   * 下スワイプclose成立
-   */
-  const finishClose = () => {
-    clearAnimationTimer()
-
-    releaseAllPointers()
-
-    setCloseAnimating(true)
-
-    syncClose(
-      window.innerHeight
-    )
-
-    animationTimerRef.current =
-      window.setTimeout(
-        () => {
-          onClose()
-        },
-        CLOSE_DURATION
-      )
-  }
-
-  /*
    * 下スワイプclose不成立
    */
   const snapCloseBack = () => {
@@ -692,23 +669,6 @@ function PhotoViewerV2({
   }
 
   /*
-   * Pointer Capture
-   */
-  const capturePointer = (
-    event:
-      ReactPointerEvent<HTMLDivElement>
-  ) => {
-    try {
-      event.currentTarget
-        .setPointerCapture(
-          event.pointerId
-        )
-    } catch {
-      // Android WebView等で失敗しても継続
-    }
-  }
-
-  /*
    * Pointer Down
    */
   const handlePointerDown = (
@@ -722,7 +682,6 @@ function PhotoViewerV2({
       return
     }
 
-    capturePointer(event)
 
     const point = {
       x: event.clientX,
@@ -1169,7 +1128,7 @@ function PhotoViewerV2({
         closeDragYRef.current >=
         CLOSE_THRESHOLD
       ) {
-        finishClose()
+        onClose()
       } else {
         snapCloseBack()
       }
@@ -1339,10 +1298,6 @@ function PhotoViewerV2({
             ? `transform ${CLOSE_DURATION}ms ${SLIDE_EASING}, opacity ${CLOSE_DURATION}ms linear`
             : 'none',
 
-        pointerEvents:
-          closeAnimating
-            ? 'none'
-            : 'auto',
       }}
       role="dialog"
       aria-modal="true"
