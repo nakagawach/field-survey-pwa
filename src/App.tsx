@@ -2,7 +2,7 @@ import { memo, useEffect, useLayoutEffect, useState } from 'react'
 import type { ChangeEvent } from 'react'
 
 import './App.css'
-import PhotoViewer from './PhotoViewerV2'
+import PhotoViewer from './PhotoViewer'
 
 import type {
   BoundaryPhoto,
