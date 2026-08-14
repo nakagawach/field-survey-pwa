@@ -4,6 +4,10 @@ type PhotoLibraryPointerDownProps = {
   children: ReactNode
 }
 
+type PickerElement = {
+  showPicker?: () => void
+}
+
 function PhotoLibraryPointerDown({ children }: PhotoLibraryPointerDownProps) {
   const handlePointerDownCapture = (event: PointerEvent<HTMLDivElement>) => {
     if (event.pointerType === 'mouse') return
@@ -11,23 +15,39 @@ function PhotoLibraryPointerDown({ children }: PhotoLibraryPointerDownProps) {
     const target = event.target
     if (!(target instanceof Element)) return
 
-    const label = target.closest('.photo-library-button')
+    const select = target.closest('select')
+    if (select instanceof HTMLSelectElement) {
+      const picker = select as HTMLSelectElement & PickerElement
+
+      if (typeof picker.showPicker === 'function') {
+        try {
+          picker.showPicker()
+          event.preventDefault()
+        } catch {
+          // Fall back to the browser's normal select handling.
+        }
+      }
+
+      return
+    }
+
+    const label = target.closest(
+      '.photo-library-button, .photo-capture-button'
+    )
     if (!(label instanceof HTMLLabelElement)) return
 
     const input = label.querySelector('input[type="file"]')
     if (!(input instanceof HTMLInputElement)) return
 
-    try {
-      if (typeof input.showPicker === 'function') {
-        input.showPicker()
-      } else {
-        input.click()
-      }
+    if (typeof input.showPicker !== 'function') {
+      return
+    }
 
+    try {
+      input.showPicker()
       event.preventDefault()
     } catch {
-      input.click()
-      event.preventDefault()
+      // Fall back to the label/input's native click behavior.
     }
   }
 
