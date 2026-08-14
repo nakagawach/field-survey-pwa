@@ -9,7 +9,6 @@ type GestureMode =
   | 'none'
   | 'pending'
   | 'swipe'
-  | 'close'
   | 'pan'
   | 'pinch'
   | 'doubletap'
@@ -39,13 +38,11 @@ export const DOUBLE_TAP_SCALE = 2.5
 
 export const GESTURE_LOCK = 14
 export const SWIPE_THRESHOLD = 56
-export const CLOSE_THRESHOLD = 90
 
 export const DOUBLE_TAP_MS = 360
 export const DOUBLE_TAP_DISTANCE = 44
 
 export const SLIDE_DURATION = 280
-export const CLOSE_DURATION = 180
 
 const SLIDE_EASING =
   'cubic-bezier(.22,.61,.36,1)'
@@ -110,17 +107,9 @@ function PhotoViewerV2({
   const [trackDragX, setTrackDragX] =
     useState(0)
 
-  const [closeDragY, setCloseDragY] =
-    useState(0)
-
   const [
     slideAnimating,
     setSlideAnimating,
-  ] = useState(false)
-
-  const [
-    closeAnimating,
-    setCloseAnimating,
   ] = useState(false)
 
   const viewerRef =
@@ -184,16 +173,12 @@ function PhotoViewerV2({
   const trackDragXRef =
     useRef(trackDragX)
 
-  const closeDragYRef =
-    useRef(closeDragY)
-
   const animationTimerRef =
     useRef<number | null>(null)
 
   scaleRef.current = scale
   imageOffsetRef.current = imageOffset
   trackDragXRef.current = trackDragX
-  closeDragYRef.current = closeDragY
 
   /*
    * Object URL
@@ -272,17 +257,6 @@ function PhotoViewerV2({
     stageRef.current?.clientWidth ||
     window.innerWidth
 
-  const viewerOpacity =
-    Math.max(
-      0.3,
-      1 -
-        closeDragY /
-          Math.max(
-            420,
-            window.innerHeight
-          )
-    )
-
   /*
    * timer
    */
@@ -330,15 +304,6 @@ function PhotoViewerV2({
     setTrackDragX(value)
   }
 
-  const syncClose = (
-    value: number
-  ) => {
-    closeDragYRef.current =
-      value
-
-    setCloseDragY(value)
-  }
-
   /*
    * Pointer Captureを明示解除
    */
@@ -362,7 +327,7 @@ function PhotoViewerV2({
               }
             } catch {
               // Android等で解除済みでも
-              // close処理を続行する
+              // gesture処理を続行する
             }
           }
         )
@@ -376,28 +341,6 @@ function PhotoViewerV2({
       gestureModeRef.current =
         'none'
     }
-
-  /*
-   * 下スワイプclose不成立
-   */
-  const snapCloseBack = () => {
-    clearAnimationTimer()
-
-    setCloseAnimating(true)
-
-    syncClose(0)
-
-    animationTimerRef.current =
-      window.setTimeout(
-        () => {
-          setCloseAnimating(false)
-
-          gestureModeRef.current =
-            'none'
-        },
-        CLOSE_DURATION
-      )
-  }
 
   /*
    * 写真切替
@@ -675,10 +618,7 @@ function PhotoViewerV2({
     event:
       ReactPointerEvent<HTMLDivElement>
   ) => {
-    if (
-      slideAnimating ||
-      closeAnimating
-    ) {
+    if (slideAnimating) {
       return
     }
 
@@ -904,13 +844,6 @@ function PhotoViewerV2({
         GESTURE_LOCK
     ) {
       if (
-        dy > 0 &&
-        Math.abs(dy) >
-          Math.abs(dx) *
-            1.12
-      ) {
-        mode = 'close'
-      } else if (
         Math.abs(dx) >
         Math.abs(dy) *
           1.05
@@ -943,22 +876,6 @@ function PhotoViewerV2({
         atEdge
           ? dx * 0.28
           : dx
-      )
-
-      return
-    }
-
-    /*
-     * close
-     */
-    if (
-      mode === 'close'
-    ) {
-      syncClose(
-        Math.max(
-          0,
-          dy
-        )
       )
 
       return
@@ -1119,22 +1036,6 @@ function PhotoViewerV2({
     }
 
     /*
-     * close終了
-     */
-    else if (
-      mode === 'close'
-    ) {
-      if (
-        closeDragYRef.current >=
-        CLOSE_THRESHOLD
-      ) {
-        onClose()
-      } else {
-        snapCloseBack()
-      }
-    }
-
-    /*
      * tap
      */
     else if (
@@ -1193,13 +1094,7 @@ function PhotoViewerV2({
 
       syncTrack(0)
 
-      syncClose(0)
-
       setSlideAnimating(
-        false
-      )
-
-      setCloseAnimating(
         false
       )
     }
@@ -1286,19 +1181,6 @@ function PhotoViewerV2({
     <div
       ref={viewerRef}
       className="field-viewer"
-      style={{
-        opacity:
-          viewerOpacity,
-
-        transform:
-          `translate3d(0, ${closeDragY}px, 0)`,
-
-        transition:
-          closeAnimating
-            ? `transform ${CLOSE_DURATION}ms ${SLIDE_EASING}, opacity ${CLOSE_DURATION}ms linear`
-            : 'none',
-
-      }}
       role="dialog"
       aria-modal="true"
       aria-label={`${boundaryPointName}の写真`}
