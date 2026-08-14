@@ -378,29 +378,6 @@ function PhotoViewerV2({
     }
 
   /*
-   * 下スワイプclose成立
-   */
-  const finishClose = () => {
-    clearAnimationTimer()
-
-    releaseAllPointers()
-
-    setCloseAnimating(true)
-
-    syncClose(
-      window.innerHeight
-    )
-
-    animationTimerRef.current =
-      window.setTimeout(
-        () => {
-          onClose()
-        },
-        CLOSE_DURATION
-      )
-  }
-
-  /*
    * 下スワイプclose不成立
    */
   const snapCloseBack = () => {
@@ -1151,7 +1128,7 @@ function PhotoViewerV2({
         closeDragYRef.current >=
         CLOSE_THRESHOLD
       ) {
-        finishClose()
+        onClose()
       } else {
         snapCloseBack()
       }
