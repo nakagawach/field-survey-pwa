@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import PhotoSwipe from 'photoswipe'
 import 'photoswipe/style.css'
 
-import './PhotoViewer.css'
 import type { BoundaryPhoto } from './types'
 
 type PhotoViewerProps = {
@@ -30,139 +29,61 @@ const getImageSize = (src: string) => new Promise<{ width: number; height: numbe
   image.src = src
 })
 
-function PhotoViewer({
-  photos,
-  activeIndex,
-  boundaryPointName,
-  categories,
-  onClose,
-  onIndexChange,
-  onDelete,
-  onCategoryChange,
-}: PhotoViewerProps) {
-  const viewerRef = useRef<PhotoSwipe | null>(null)
+function PhotoViewer({ photos, activeIndex, onClose, onIndexChange }: PhotoViewerProps) {
   const callbacksRef = useRef({ onClose, onIndexChange })
-  const firstPhotoId = useRef(photos[activeIndex]?.id)
-  const initialIndex = Math.max(0, photos.findIndex((photo) => photo.id === firstPhotoId.current))
-  const [currentIndex, setCurrentIndex] = useState(initialIndex)
-  const [zoomPercent, setZoomPercent] = useState(100)
-
+  const initialIndexRef = useRef(activeIndex)
   callbacksRef.current = { onClose, onIndexChange }
 
-  const urls = useMemo(
-    () => photos.map((photo) => URL.createObjectURL(photo.blob)),
-    [photos],
-  )
-
   useEffect(() => {
+    const urls = photos.map((photo) => URL.createObjectURL(photo.blob))
+    let viewer: PhotoSwipe | null = null
     let disposed = false
-    let isReactCleanup = false
 
     Promise.all(urls.map(async (src, index): Promise<PhotoSlide> => ({
       src,
       ...await getImageSize(src),
       alt: photos[index].fileName,
     }))).then((dataSource) => {
-      if (disposed || dataSource.length === 0) return
+      if (disposed) return
+      if (dataSource.length === 0) {
+        callbacksRef.current.onClose()
+        return
+      }
 
-      const index = Math.min(currentIndex, dataSource.length - 1)
-      const viewer = new PhotoSwipe({
+      viewer = new PhotoSwipe({
         dataSource,
-        index,
-        allowPanToNext: false,
+        index: Math.min(initialIndexRef.current, dataSource.length - 1),
+        close: true,
+        zoom: true,
+        arrowPrev: true,
+        arrowNext: true,
+        counter: true,
         closeOnVerticalDrag: true,
-        pinchToClose: false,
+        allowPanToNext: false,
+        doubleTapAction: 'zoom',
         wheelToZoom: true,
         escKey: true,
         arrowKeys: true,
         loop: false,
-        bgOpacity: 0.96,
-        showHideAnimationType: 'fade',
-        doubleTapAction: 'zoom',
-        imageClickAction: 'zoom',
-        tapAction: false,
-        close: false,
-        zoom: false,
-        arrowPrev: false,
-        arrowNext: false,
-        counter: false,
       })
 
       viewer.on('change', () => {
-        setCurrentIndex(viewer.currIndex)
-        callbacksRef.current.onIndexChange(viewer.currIndex)
-      })
-      viewer.on('zoomPanUpdate', () => {
-        const slide = viewer.currSlide
-        if (slide) setZoomPercent(Math.round(slide.currZoomLevel / slide.zoomLevels.initial * 100))
+        if (viewer) callbacksRef.current.onIndexChange(viewer.currIndex)
       })
       viewer.on('destroy', () => {
-        viewerRef.current = null
-        if (!isReactCleanup) callbacksRef.current.onClose()
+        if (!disposed) callbacksRef.current.onClose()
       })
-
-      viewerRef.current = viewer
       viewer.init()
     })
 
     return () => {
       disposed = true
-      isReactCleanup = true
-      viewerRef.current?.destroy()
-      viewerRef.current = null
+      viewer?.destroy()
       urls.forEach((url) => URL.revokeObjectURL(url))
     }
-  }, [photos, urls])
+  }, [photos])
 
-  const photo = photos[currentIndex]
-  if (!photo) return null
-
-  const zoom = (factor: number) => {
-    const viewer = viewerRef.current
-    const slide = viewer?.currSlide
-    if (!viewer || !slide) return
-    const nextLevel = Math.min(slide.zoomLevels.max, Math.max(slide.zoomLevels.initial, slide.currZoomLevel * factor))
-    slide.zoomTo(nextLevel, undefined, viewer.options.zoomAnimationDuration)
-  }
-
-  return (
-    <div className="photo-viewer-controls" aria-label={`${boundaryPointName}の写真操作`}>
-      <header className="photo-viewer-header">
-        <button type="button" className="photo-viewer-round" aria-label="閉じる" onClick={() => viewerRef.current?.close()}>×</button>
-        <div className="photo-viewer-title">
-          <strong>{boundaryPointName}</strong>
-          <span>{currentIndex + 1} / {photos.length}</span>
-        </div>
-        <div className="photo-viewer-zoom" aria-label="ズーム操作">
-          <button type="button" aria-label="縮小" onClick={() => zoom(1 / 1.5)}>−</button>
-          <span>{zoomPercent}%</span>
-          <button type="button" aria-label="拡大" onClick={() => zoom(1.5)}>＋</button>
-        </div>
-      </header>
-
-      {currentIndex > 0 && (
-        <button type="button" className="photo-viewer-arrow photo-viewer-previous" aria-label="前の写真" onClick={() => viewerRef.current?.prev()}>‹</button>
-      )}
-      {currentIndex < photos.length - 1 && (
-        <button type="button" className="photo-viewer-arrow photo-viewer-next" aria-label="次の写真" onClick={() => viewerRef.current?.next()}>›</button>
-      )}
-
-      <footer className="photo-viewer-footer">
-        <span className="photo-viewer-file-name" title={photo.fileName}>{photo.fileName}</span>
-        <label className="photo-viewer-category">
-          <span>写真種別</span>
-          <select value={photo.category ?? ''} onChange={(event) => void onCategoryChange(photo, event.target.value)}>
-            <option value="">未選択</option>
-            {categories.map((category) => <option key={category} value={category}>{category}</option>)}
-          </select>
-        </label>
-        <button type="button" className="photo-viewer-delete" onClick={async () => {
-          const deleted = await onDelete(photo)
-          if (deleted && photos.length === 1) viewerRef.current?.close()
-        }}>削除</button>
-      </footer>
-    </div>
-  )
+  return null
 }
 
 export default PhotoViewer
