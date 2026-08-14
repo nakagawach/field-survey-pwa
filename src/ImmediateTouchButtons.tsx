@@ -1,42 +1,62 @@
-import type { MouseEvent, PointerEvent, ReactNode } from 'react'
-
-let allowProgrammaticClick = false
-let suppressNativeClickUntil = 0
+import { useEffect } from 'react'
+import type { ReactNode } from 'react'
 
 type ImmediateTouchButtonsProps = {
   children: ReactNode
 }
 
 function ImmediateTouchButtons({ children }: ImmediateTouchButtonsProps) {
-  const handlePointerUpCapture = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === 'mouse') return
+  useEffect(() => {
+    let programmaticButton: HTMLButtonElement | null = null
+    const suppressNativeClickUntil = new WeakMap<HTMLButtonElement, number>()
 
-    const target = event.target
-    if (!(target instanceof Element)) return
+    const handlePointerUpCapture = (event: PointerEvent) => {
+      if (event.pointerType === 'mouse') return
 
-    const button = target.closest('button')
-    if (!(button instanceof HTMLButtonElement) || button.disabled) return
+      const target = event.target
+      if (!(target instanceof Element)) return
 
-    suppressNativeClickUntil = performance.now() + 700
-    allowProgrammaticClick = true
-    button.click()
-    allowProgrammaticClick = false
-  }
+      const button = target.closest('button')
+      if (!(button instanceof HTMLButtonElement) || button.disabled) return
 
-  const handleClickCapture = (event: MouseEvent<HTMLDivElement>) => {
-    if (allowProgrammaticClick || performance.now() >= suppressNativeClickUntil) {
-      return
+      suppressNativeClickUntil.set(button, performance.now() + 700)
+
+      programmaticButton = button
+      button.click()
+      programmaticButton = null
     }
 
-    event.preventDefault()
-    event.stopPropagation()
-  }
+    const handleClickCapture = (event: MouseEvent) => {
+      const target = event.target
+      if (!(target instanceof Element)) return
 
-  return (
-    <div onPointerUpCapture={handlePointerUpCapture} onClickCapture={handleClickCapture}>
-      {children}
-    </div>
-  )
+      const button = target.closest('button')
+      if (!(button instanceof HTMLButtonElement)) return
+
+      if (programmaticButton === button) {
+        return
+      }
+
+      const suppressUntil = suppressNativeClickUntil.get(button) ?? 0
+      if (performance.now() >= suppressUntil) {
+        return
+      }
+
+      event.preventDefault()
+      event.stopPropagation()
+      event.stopImmediatePropagation()
+    }
+
+    document.addEventListener('pointerup', handlePointerUpCapture, true)
+    document.addEventListener('click', handleClickCapture, true)
+
+    return () => {
+      document.removeEventListener('pointerup', handlePointerUpCapture, true)
+      document.removeEventListener('click', handleClickCapture, true)
+    }
+  }, [])
+
+  return <>{children}</>
 }
 
 export default ImmediateTouchButtons
