@@ -1474,12 +1474,8 @@ function App() {
           <PhotoViewer
             photos={photos}
             activeIndex={selectedPhotoIndex}
-            boundaryPointName={selectedBoundaryPoint.name}
-            categories={PHOTO_CATEGORIES}
             onClose={() => setSelectedPhotoIndex(null)}
             onIndexChange={setSelectedPhotoIndex}
-            onDelete={handleDeletePhoto}
-            onCategoryChange={handleChangePhotoCategory}
           />
         )}
       </div>
