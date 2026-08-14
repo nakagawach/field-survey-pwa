@@ -692,23 +692,6 @@ function PhotoViewerV2({
   }
 
   /*
-   * Pointer Capture
-   */
-  const capturePointer = (
-    event:
-      ReactPointerEvent<HTMLDivElement>
-  ) => {
-    try {
-      event.currentTarget
-        .setPointerCapture(
-          event.pointerId
-        )
-    } catch {
-      // Android WebView等で失敗しても継続
-    }
-  }
-
-  /*
    * Pointer Down
    */
   const handlePointerDown = (
@@ -722,7 +705,6 @@ function PhotoViewerV2({
       return
     }
 
-    capturePointer(event)
 
     const point = {
       x: event.clientX,
