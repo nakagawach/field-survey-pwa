@@ -63,6 +63,8 @@ function PhotoViewer({ photos, activeIndex, onClose, onIndexChange }: PhotoViewe
         loop: false,
       })
 
+      viewer.addFilter('preventPointerEvent', () => false)
+
       viewer.on('change', () => {
         if (viewer) callbacksRef.current.onIndexChange(viewer.currIndex)
       })
