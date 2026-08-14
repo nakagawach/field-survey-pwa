@@ -1339,10 +1339,6 @@ function PhotoViewerV2({
             ? `transform ${CLOSE_DURATION}ms ${SLIDE_EASING}, opacity ${CLOSE_DURATION}ms linear`
             : 'none',
 
-        pointerEvents:
-          closeAnimating
-            ? 'none'
-            : 'auto',
       }}
       role="dialog"
       aria-modal="true"
