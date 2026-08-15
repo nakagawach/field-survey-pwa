@@ -1,0 +1,24 @@
+/*
+ * Android/iPhone camera input activation A/B fix.
+ *
+ * Keep the existing label + input DOM, but let the camera input itself receive
+ * the user tap instead of relying on label -> hidden input synthetic activation.
+ * This avoids touching photo save/IndexedDB logic and leaves the library input
+ * unchanged.
+ */
+.photo-capture-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.photo-capture-button > .hidden-file-input {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+}
