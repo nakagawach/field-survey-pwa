@@ -593,7 +593,7 @@ function App() {
    */
 
   const saveSelectedPhotos = async (
-    files: readonly File[]
+    files: FileList
   ): Promise<BoundaryPhoto[]> => {
     if (
       !selectedProject ||
@@ -606,7 +606,7 @@ function App() {
     const failedFileNames: string[] = []
     const createdAt = Date.now()
 
-    for (const [index, file] of files.entries()) {
+    for (const [index, file] of Array.from(files).entries()) {
       const photo: BoundaryPhoto = {
         id: crypto.randomUUID(),
 
@@ -658,11 +658,10 @@ function App() {
     source: 'camera' | 'library'
   ) => {
     const input = event.currentTarget
-    const files = Array.from(input.files ?? [])
+    const files = input.files
 
-    input.value = ''
-
-    if (files.length === 0) {
+    if (!files || files.length === 0) {
+      input.value = ''
       return
     }
 
@@ -678,6 +677,8 @@ function App() {
       }
     } catch {
       window.alert('写真を保存できませんでした。もう一度お試しください。')
+    } finally {
+      input.value = ''
     }
   }
 
@@ -974,12 +975,10 @@ function App() {
           </label>
 
           <button
-            type="button"
             className="save-button"
             onClick={
               handleSaveProject
             }
-            disabled={!editingProject.title.trim()}
           >
             保存
           </button>
@@ -1344,6 +1343,7 @@ function App() {
                     type="file"
                     accept="image/*"
                     capture="environment"
+                    multiple
                     onChange={(event) =>
                       handlePhotoSelected(event, 'camera')
                     }
@@ -1992,7 +1992,6 @@ function App() {
       </main>
 
       <button
-        type="button"
         className="floating-button"
         onClick={
           handleNewProject
