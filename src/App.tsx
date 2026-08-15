@@ -975,6 +975,7 @@ function App() {
           </label>
 
           <button
+            type="button"
             className="save-button"
             onClick={
               handleSaveProject
@@ -1992,6 +1993,7 @@ function App() {
       </main>
 
       <button
+        type="button"
         className="floating-button"
         onClick={
           handleNewProject
