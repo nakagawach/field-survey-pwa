@@ -8,7 +8,7 @@ type ImmediateTouchButtonsProps = {
 function ImmediateTouchButtons({ children }: ImmediateTouchButtonsProps) {
   useEffect(() => {
     let programmaticButton: HTMLButtonElement | null = null
-    const suppressNativeClickUntil = new WeakMap<HTMLButtonElement, number>()
+    let suppressNativeClickUntil = 0
 
     const handlePointerUpCapture = (event: PointerEvent) => {
       if (event.pointerType === 'mouse') return
@@ -19,7 +19,10 @@ function ImmediateTouchButtons({ children }: ImmediateTouchButtonsProps) {
       const button = target.closest('button')
       if (!(button instanceof HTMLButtonElement) || button.disabled) return
 
-      suppressNativeClickUntil.set(button, performance.now() + 700)
+      // button.click() may synchronously replace the screen. The browser's later
+      // synthesized click can then be hit-tested against a different button on
+      // that new screen, so suppress that native click regardless of its target.
+      suppressNativeClickUntil = performance.now() + 700
 
       programmaticButton = button
       button.click()
@@ -37,8 +40,7 @@ function ImmediateTouchButtons({ children }: ImmediateTouchButtonsProps) {
         return
       }
 
-      const suppressUntil = suppressNativeClickUntil.get(button) ?? 0
-      if (performance.now() >= suppressUntil) {
+      if (performance.now() >= suppressNativeClickUntil) {
         return
       }
 
