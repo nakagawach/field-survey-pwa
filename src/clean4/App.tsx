@@ -74,6 +74,7 @@ function PhotoThumb({ photo, onOpen }: { photo: BoundaryPhoto; onOpen: () => voi
 export default function App() {
   const [screen, setScreen] = useState<Screen>('projectList')
   const [projects, setProjects] = useState<SurveyProject[]>([])
+  const [projectProgress, setProjectProgress] = useState<Record<string, number>>({})
   const [project, setProject] = useState<SurveyProject | null>(null)
   const [projectDraft, setProjectDraft] = useState<SurveyProject | null>(null)
   const [points, setPoints] = useState<BoundaryPoint[]>([])
@@ -85,7 +86,21 @@ export default function App() {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null)
   const [gpsBusy, setGpsBusy] = useState(false)
 
-  const refreshProjects = async () => setProjects(await getProjects())
+  const refreshProjects = async () => {
+    const nextProjects = await getProjects()
+    setProjects(nextProjects)
+
+    const progressEntries = await Promise.all(nextProjects.map(async (item) => {
+      const nextPoints = await getBoundaryPointsByProjectId(item.id)
+      const counts: Record<string, number> = {}
+      await Promise.all(nextPoints.map(async (nextPoint) => {
+        counts[nextPoint.id] = (await getPhotosByBoundaryPointId(nextPoint.id)).length
+      }))
+      return [item.id, calculateProgress(item, nextPoints, counts).percentage] as const
+    }))
+
+    setProjectProgress(Object.fromEntries(progressEntries))
+  }
 
   const refreshProjectData = async (projectId: string) => {
     const nextPoints = await getBoundaryPointsByProjectId(projectId)
@@ -361,7 +376,10 @@ export default function App() {
     <div className="app-shell">
       <Header title="現場調査" />
       <main className="content-screen">
-        {projects.length === 0 ? <div className="empty-card large">案件がありません<br /><small>右下の＋から案件を登録してください</small></div> : projects.map((item) => <div className="project-card" key={item.id}><button type="button" className="project-main" onClick={() => void openProject(item)}><strong>{item.title}</strong><span>{item.location || '所在地未入力'} ／ {item.surveyDate}</span></button><button type="button" className="project-delete" onClick={() => void removeProject(item)}>削除</button></div>)}
+        {projects.length === 0 ? <div className="empty-card large">案件がありません<br /><small>右下の＋から案件を登録してください</small></div> : projects.map((item) => {
+          const percentage = projectProgress[item.id]
+          return <div className="project-card" key={item.id}><button type="button" className="project-main" onClick={() => void openProject(item)}><strong>{item.title}{percentage !== undefined && <span style={{ marginLeft: 8, color: percentage === 100 ? '#23733c' : '#1267b9', WebkitTextFillColor: percentage === 100 ? '#23733c' : '#1267b9', fontSize: 13, fontWeight: 700 }}>{percentage === 100 ? '完了' : `${percentage}%`}</span>}</strong><span>{item.location || '所在地未入力'} ／ {item.surveyDate}</span></button><button type="button" className="project-delete" onClick={() => void removeProject(item)}>削除</button></div>
+        })}
         <button type="button" className="floating-button" aria-label="案件を追加" onClick={() => { setProject(null); setProjectDraft(createProject()); setScreen('projectEdit') }}>＋</button>
       </main>
     </div>
