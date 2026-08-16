@@ -4,9 +4,21 @@ import type {
 } from './types'
 
 export type SurveyProgressCheck = {
-  id: 'gps' | 'boundaryPoints' | 'boundaryInfo' | 'photos'
+  id:
+    | 'gps'
+    | 'boundaryPoints'
+    | 'boundaryInfo'
+    | 'photos'
+    | 'boundaryCompletion'
   complete: boolean
   message: string
+}
+
+export type BoundaryPointCompletion = {
+  complete: boolean
+  completedCount: number
+  totalCount: number
+  missing: string[]
 }
 
 export type SurveyProgress = {
@@ -14,6 +26,35 @@ export type SurveyProgress = {
   completedCount: number
   totalCount: number
   checks: SurveyProgressCheck[]
+}
+
+export const calculateBoundaryPointCompletion = (
+  point: BoundaryPoint,
+  photoCount: number
+): BoundaryPointCompletion => {
+  const missing: string[] = []
+
+  if (point.markerType.trim() === '') {
+    missing.push('境界標種類')
+  }
+
+  if (point.condition.trim() === '') {
+    missing.push('状態')
+  }
+
+  if (photoCount === 0) {
+    missing.push('写真')
+  }
+
+  const totalCount = 3
+  const completedCount = totalCount - missing.length
+
+  return {
+    complete: missing.length === 0,
+    completedCount,
+    totalCount,
+    missing,
+  }
 }
 
 export const calculateSurveyProgress = (
@@ -27,13 +68,14 @@ export const calculateSurveyProgress = (
 
   const hasBoundaryPoints = boundaryPoints.length > 0
 
+  const incompleteBoundaryInfo = boundaryPoints.filter(
+    (point) =>
+      point.markerType.trim() === '' ||
+      point.condition.trim() === ''
+  )
+
   const hasCompleteBoundaryInfo =
-    hasBoundaryPoints &&
-    boundaryPoints.every(
-      (point) =>
-        point.markerType.trim() !== '' &&
-        point.condition.trim() !== ''
-    )
+    hasBoundaryPoints && incompleteBoundaryInfo.length === 0
 
   const pointsWithoutPhotos = boundaryPoints.filter(
     (point) => (photoCounts[point.id] ?? 0) === 0
@@ -41,6 +83,44 @@ export const calculateSurveyProgress = (
 
   const allPointsHavePhotos =
     hasBoundaryPoints && pointsWithoutPhotos.length === 0
+
+  const pointCompletion = boundaryPoints.map((point) => ({
+    point,
+    completion: calculateBoundaryPointCompletion(
+      point,
+      photoCounts[point.id] ?? 0
+    ),
+  }))
+
+  const completedBoundaryPoints = pointCompletion.filter(
+    ({ completion }) => completion.complete
+  ).length
+
+  const allBoundaryPointsComplete =
+    hasBoundaryPoints &&
+    completedBoundaryPoints === boundaryPoints.length
+
+  const pointStatusText = pointCompletion
+    .map(({ point, completion }) =>
+      completion.complete
+        ? `✓ ${point.name}`
+        : `! ${point.name}：${completion.missing.join('・')}`
+    )
+    .join(' ／ ')
+
+  const nextIncomplete = pointCompletion.find(
+    ({ completion }) => !completion.complete
+  )
+
+  const nextActionText = nextIncomplete
+    ? `｜次：${nextIncomplete.point.name}の${nextIncomplete.completion.missing.join('・')}`
+    : ''
+
+  const boundaryCompletionMessage = !hasBoundaryPoints
+    ? '境界点を登録すると完了チェックを開始します'
+    : `境界点 ${completedBoundaryPoints}/${boundaryPoints.length} 完了${
+        pointStatusText ? `｜${pointStatusText}` : ''
+      }${nextActionText}`
 
   const checks: SurveyProgressCheck[] = [
     {
@@ -62,8 +142,10 @@ export const calculateSurveyProgress = (
       complete: hasCompleteBoundaryInfo,
       message: hasCompleteBoundaryInfo
         ? '境界点情報入力済み'
-        : hasBoundaryPoints
-          ? '種類または状態が未入力の境界点があります'
+        : incompleteBoundaryInfo.length > 0
+          ? `${incompleteBoundaryInfo
+              .map((point) => point.name)
+              .join('、')}：種類または状態が未入力`
           : '境界点情報を入力してください',
     },
     {
@@ -76,6 +158,11 @@ export const calculateSurveyProgress = (
               .map((point) => `${point.name}：写真なし`)
               .join('、')
           : '境界点の写真を登録してください',
+    },
+    {
+      id: 'boundaryCompletion',
+      complete: allBoundaryPointsComplete,
+      message: boundaryCompletionMessage,
     },
   ]
 
