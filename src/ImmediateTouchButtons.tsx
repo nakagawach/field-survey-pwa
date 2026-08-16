@@ -8,7 +8,6 @@ type ImmediateTouchButtonsProps = {
 function ImmediateTouchButtons({ children }: ImmediateTouchButtonsProps) {
   useEffect(() => {
     let programmaticButton: HTMLButtonElement | null = null
-    const suppressNativeClickUntil = new WeakMap<HTMLButtonElement, number>()
 
     const handlePointerUpCapture = (event: PointerEvent) => {
       if (event.pointerType === 'mouse') return
@@ -19,11 +18,18 @@ function ImmediateTouchButtons({ children }: ImmediateTouchButtonsProps) {
       const button = target.closest('button')
       if (!(button instanceof HTMLButtonElement) || button.disabled) return
 
-      suppressNativeClickUntil.set(button, performance.now() + 700)
+      // AndroidではPhotoSwipeの下スワイプclose直後に、ブラウザが次の
+      // synthetic clickを無視することがあるためpointerupで即時activateする。
+      // 同じ操作から後続clickが合成されないよう、このpointerup自体を
+      // preventDefaultして、時間ベースのclick抑止は使わない。
+      event.preventDefault()
 
       programmaticButton = button
-      button.click()
-      programmaticButton = null
+      try {
+        button.click()
+      } finally {
+        programmaticButton = null
+      }
     }
 
     const handleClickCapture = (event: MouseEvent) => {
@@ -33,18 +39,8 @@ function ImmediateTouchButtons({ children }: ImmediateTouchButtonsProps) {
       const button = target.closest('button')
       if (!(button instanceof HTMLButtonElement)) return
 
-      if (programmaticButton === button) {
-        return
-      }
-
-      const suppressUntil = suppressNativeClickUntil.get(button) ?? 0
-      if (performance.now() >= suppressUntil) {
-        return
-      }
-
-      event.preventDefault()
-      event.stopPropagation()
-      event.stopImmediatePropagation()
+      // pointerup内で明示的に発火したclickだけは通常どおり通す。
+      if (programmaticButton === button) return
     }
 
     document.addEventListener('pointerup', handlePointerUpCapture, true)
