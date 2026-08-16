@@ -35,6 +35,11 @@ export default function TouchBridge({ children }: Props) {
 
       const fileInput = target.closest('input[type="file"]')
       if (fileInput instanceof HTMLInputElement) {
+        // 撮影inputは実input自身が直接tapを受ける既知の安定経路を維持する。
+        // TouchBridgeからshowPicker()を重ねると、撮影復帰後の再起動や
+        // change不発を再発させる可能性があるため介入しない。
+        if (fileInput.hasAttribute('capture')) return
+
         const picker = fileInput as HTMLInputElement & PickerCapable
         if (typeof picker.showPicker === 'function') {
           try {
