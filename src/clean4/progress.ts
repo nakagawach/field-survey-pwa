@@ -52,6 +52,14 @@ export function calculateProgress(
     },
   ]
 
+  const remainingCoreCount = coreItems.filter((item) => !item.complete).length
+  const summaryItem: ProgressItem = {
+    complete: remainingCoreCount === 0,
+    text: remainingCoreCount === 0
+      ? '調査完了'
+      : `必須項目 残り${remainingCoreCount}件`,
+  }
+
   const boundaryStatuses = points.map((point) => {
     const missing = getMissingItems(point, photoCounts[point.id] ?? 0)
 
@@ -88,6 +96,6 @@ export function calculateProgress(
 
   return {
     percentage: Math.round((coreItems.filter((item) => item.complete).length / coreItems.length) * 100),
-    items: [...coreItems, ...detailItems],
+    items: [summaryItem, ...coreItems, ...detailItems],
   }
 }
