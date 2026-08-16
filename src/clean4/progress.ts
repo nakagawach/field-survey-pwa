@@ -23,6 +23,7 @@ export function calculateProgress(
   const infoDone = hasPoints && points.every((point) => point.markerType.trim() && point.condition.trim())
   const missingPhotos = points.filter((point) => (photoCounts[point.id] ?? 0) === 0)
   const photosDone = hasPoints && missingPhotos.length === 0
+  const boundaryConfirmed = project.boundaryChecked
 
   const coreItems: ProgressItem[] = [
     { complete: hasGps, text: hasGps ? 'GPS取得済み' : 'GPSが未取得です' },
@@ -42,6 +43,12 @@ export function calculateProgress(
         : missingPhotos.length
           ? missingPhotos.map((point) => `${point.name}：写真なし`).join('、')
           : '境界点の写真を登録してください',
+    },
+    {
+      complete: boundaryConfirmed,
+      text: boundaryConfirmed
+        ? '境界確認済み'
+        : '境界確認が未完了です',
     },
   ]
 
