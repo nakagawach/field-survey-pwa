@@ -1,0 +1,23 @@
+/*
+ * Mobile camera input stability.
+ *
+ * The camera input itself receives the user tap instead of depending on
+ * label -> hidden input synthetic activation. Photo save/IndexedDB logic is
+ * intentionally unchanged.
+ */
+.photo-capture-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.photo-capture-button > .hidden-file-input {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+}
