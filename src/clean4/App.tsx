@@ -320,6 +320,10 @@ export default function App() {
   }
 
   if (screen === 'pointDetail' && project && point) {
+    const currentPointIndex = points.findIndex((item) => item.id === point.id)
+    const previousPoint = currentPointIndex > 0 ? points[currentPointIndex - 1] : null
+    const nextPoint = currentPointIndex >= 0 && currentPointIndex < points.length - 1 ? points[currentPointIndex + 1] : null
+
     return (
       <div className="app-shell">
         <Header title={point.name} onBack={() => setScreen('projectDetail')} />
@@ -345,6 +349,17 @@ export default function App() {
               ))}
             </div>
           </section>
+
+          {points.length > 1 && (
+            <section className="card">
+              <div className="card-head"><div><h2>境界点移動</h2><p>{currentPointIndex + 1}/{points.length}</p></div></div>
+              <div className="button-row">
+                <button type="button" className="small-button" disabled={!previousPoint} onClick={() => { if (previousPoint) void openPoint(previousPoint) }}>← {previousPoint?.name ?? '前なし'}</button>
+                <button type="button" className="small-button" disabled={!nextPoint} onClick={() => { if (nextPoint) void openPoint(nextPoint) }}>{nextPoint?.name ?? '次なし'} →</button>
+              </div>
+            </section>
+          )}
+
           {viewerIndex !== null && <PhotoViewer photos={photos} index={viewerIndex} onIndexChange={setViewerIndex} onClose={() => setViewerIndex(null)} />}
         </main>
       </div>
@@ -352,6 +367,22 @@ export default function App() {
   }
 
   if (screen === 'projectDetail' && project) {
+    const pointWithMissingInfo = points.find((item) => !item.markerType.trim() || !item.condition.trim()) ?? null
+    const pointWithoutPhoto = points.find((item) => (photoCounts[item.id] ?? 0) === 0) ?? null
+    const hasGps = project.latitude !== undefined && project.longitude !== undefined
+
+    const nextAction = !hasGps
+      ? { label: '次にやる：GPSを取得', run: () => captureGps() }
+      : points.length === 0
+        ? { label: '次にやる：境界点を追加', run: () => { setPoint(null); setPointDraft(createPoint(project.id, 1)); setScreen('pointEdit') } }
+        : pointWithMissingInfo
+          ? { label: `次にやる：${pointWithMissingInfo.name}の情報を入力`, run: () => { setPoint(pointWithMissingInfo); setPointDraft({ ...pointWithMissingInfo, positionMemo: pointWithMissingInfo.positionMemo ?? '' }); setScreen('pointEdit') } }
+          : pointWithoutPhoto
+            ? { label: `次にやる：${pointWithoutPhoto.name}の写真を登録`, run: () => { void openPoint(pointWithoutPhoto) } }
+            : !project.boundaryChecked
+              ? { label: '次にやる：境界確認を入力', run: () => { setProjectDraft({ ...project }); setScreen('projectEdit') } }
+              : null
+
     return (
       <div className="app-shell">
         <Header title={project.title} onBack={() => { setProject(null); setPoint(null); setScreen('projectList'); void refreshProjects() }} />
@@ -363,7 +394,7 @@ export default function App() {
 
           <section className="card"><h2>位置情報</h2>{project.latitude !== undefined && project.longitude !== undefined ? <p>{project.latitude.toFixed(6)}, {project.longitude.toFixed(6)}　精度 ±{Math.round(project.accuracy ?? 0)}m</p> : <p>未取得</p>}<div className="button-row"><button type="button" disabled={gpsBusy} onClick={captureGps}>{gpsBusy ? '取得中…' : '現在地を取得'}</button>{project.latitude !== undefined && project.longitude !== undefined && <button type="button" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${project.latitude},${project.longitude}`, '_blank', 'noopener,noreferrer')}>Googleマップ</button>}</div></section>
 
-          {progress && <section className="card progress-card"><div className="progress-title"><h2>調査進捗</h2><strong>{progress.percentage}%</strong></div><div className="progress-track"><div style={{ width: `${progress.percentage}%` }} /></div><ul>{progress.items.map((item) => <li key={item.text} className={item.complete ? 'done' : 'todo'}>{item.complete ? '✓' : '!'} {item.text}</li>)}</ul></section>}
+          {progress && <section className="card progress-card"><div className="progress-title"><h2>調査進捗</h2><strong>{progress.percentage}%</strong></div><div className="progress-track"><div style={{ width: `${progress.percentage}%` }} /></div><ul>{progress.items.map((item) => <li key={item.text} className={item.complete ? 'done' : 'todo'}>{item.complete ? '✓' : '!'} {item.text}</li>)}</ul>{nextAction && <div className="button-row"><button type="button" className="primary-button" disabled={gpsBusy && !hasGps} onClick={nextAction.run}>{gpsBusy && !hasGps ? 'GPS取得中…' : nextAction.label}</button></div>}</section>}
 
           <section><div className="section-head"><h2>境界点 <small>{points.length}件</small></h2></div>{points.length === 0 ? <div className="empty-card">境界点を追加してください</div> : points.map((item) => <div className="list-card" key={item.id}><button type="button" className="list-main" onClick={() => void openPoint(item)}><strong>{item.name}</strong><span>{item.markerType || '種類未設定'} ／ {item.condition || '状態未設定'} ／ 写真 {photoCounts[item.id] ?? 0}枚</span></button><button type="button" className="list-delete" onClick={() => void removePoint(item)}>削除</button></div>)}</section>
           <button type="button" className="floating-button" aria-label="境界点を追加" onClick={() => { setPoint(null); setPointDraft(createPoint(project.id, points.length + 1)); setScreen('pointEdit') }}>＋</button>
