@@ -1,0 +1,157 @@
+.project-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 220px);
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 14px;
+  border: 1px solid #dddddd;
+  border-radius: 14px;
+  background: #ffffff !important;
+}
+
+.project-tools label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #333333 !important;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.project-tools input,
+.project-tools select,
+.photo-organize-card input,
+.photo-tag-form input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid #c9c9c9;
+  border-radius: 9px;
+  outline: none;
+  color: #222222 !important;
+  background: #ffffff !important;
+  -webkit-text-fill-color: #222222 !important;
+}
+
+.project-tools input:focus,
+.project-tools select:focus,
+.photo-organize-card input:focus,
+.photo-tag-form input:focus {
+  border-color: #1976d2;
+}
+
+.photo-organize-card {
+  margin-bottom: 14px;
+  padding: 13px;
+  border: 1px solid #d9e3ee;
+  border-radius: 12px;
+  background: #ffffff !important;
+}
+
+.photo-organize-title {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 10px;
+}
+
+.photo-organize-title strong {
+  color: #111111 !important;
+  font-size: 15px;
+}
+
+.photo-organize-title small {
+  color: #666666 !important;
+  font-size: 12px;
+}
+
+.tag-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.tag-chip-list.compact {
+  gap: 5px;
+}
+
+.tag-chip {
+  border: 1px solid #b8cce3;
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: #f5f9fe !important;
+  color: #27577f !important;
+  -webkit-text-fill-color: #27577f !important;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.tag-chip.active {
+  border-color: #1976d2;
+  background: #1976d2 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+.tag-chip.removable {
+  padding: 5px 8px;
+  border-color: #d3dce6;
+  background: #f7f8fa !important;
+  color: #3f4c58 !important;
+  -webkit-text-fill-color: #3f4c58 !important;
+  font-size: 11px;
+}
+
+.tag-add-row,
+.photo-tag-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.tag-add-row input,
+.photo-tag-form input {
+  flex: 1;
+}
+
+.tag-add-row button,
+.photo-tag-form button {
+  flex: none;
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 12px;
+  background: #e8f2ff !important;
+  color: #1267b9 !important;
+  -webkit-text-fill-color: #1267b9 !important;
+  font-weight: 700;
+}
+
+.photo-tags {
+  padding: 0 8px 8px;
+}
+
+.tag-empty {
+  color: #888888 !important;
+  font-size: 12px;
+}
+
+.photo-tag-form input {
+  padding: 8px;
+  font-size: 12px;
+}
+
+.photo-tag-form button {
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+@media (max-width: 480px) {
+  .project-tools {
+    grid-template-columns: 1fr;
+  }
+
+  .tag-add-row,
+  .photo-tag-form {
+    align-items: stretch;
+  }
+}
