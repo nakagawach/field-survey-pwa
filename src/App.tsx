@@ -1186,6 +1186,23 @@ function App() {
     screen === 'boundaryDetail' &&
     selectedBoundaryPoint
   ) {
+    const currentBoundaryIndex =
+      boundaryPoints.findIndex(
+        (point) =>
+          point.id === selectedBoundaryPoint.id
+      )
+
+    const previousBoundaryPoint =
+      currentBoundaryIndex > 0
+        ? boundaryPoints[currentBoundaryIndex - 1]
+        : null
+
+    const nextBoundaryPoint =
+      currentBoundaryIndex >= 0 &&
+      currentBoundaryIndex < boundaryPoints.length - 1
+        ? boundaryPoints[currentBoundaryIndex + 1]
+        : null
+
     return (
       <div className="app">
         <header className="header">
@@ -1468,6 +1485,50 @@ function App() {
               </div>
             )}
           </section>
+
+          {boundaryPoints.length > 1 && (
+            <section className="progress-card">
+              <div className="progress-header">
+                <h2>次の境界点へ</h2>
+                <strong>
+                  {currentBoundaryIndex + 1}/
+                  {boundaryPoints.length}
+                </strong>
+              </div>
+
+              <div className="location-actions">
+                <button
+                  type="button"
+                  className="small-button"
+                  disabled={!previousBoundaryPoint}
+                  onClick={() => {
+                    if (previousBoundaryPoint) {
+                      void handleOpenBoundaryPoint(
+                        previousBoundaryPoint
+                      )
+                    }
+                  }}
+                >
+                  ← {previousBoundaryPoint?.name ?? '前なし'}
+                </button>
+
+                <button
+                  type="button"
+                  className="small-button"
+                  disabled={!nextBoundaryPoint}
+                  onClick={() => {
+                    if (nextBoundaryPoint) {
+                      void handleOpenBoundaryPoint(
+                        nextBoundaryPoint
+                      )
+                    }
+                  }}
+                >
+                  {nextBoundaryPoint?.name ?? '次なし'} →
+                </button>
+              </div>
+            </section>
+          )}
         </main>
 
         {selectedPhotoIndex !== null && (
@@ -1507,6 +1568,48 @@ function App() {
         boundaryPoints,
         photoCounts
       )
+
+    const pointWithMissingInfo =
+      boundaryPoints.find(
+        (point) =>
+          point.markerType.trim() === '' ||
+          point.condition.trim() === ''
+      ) ?? null
+
+    const pointWithoutPhoto =
+      boundaryPoints.find(
+        (point) =>
+          (photoCounts[point.id] ?? 0) === 0
+      ) ?? null
+
+    const nextAction = !hasLocation
+      ? {
+          label: '次：GPSを取得',
+          run: () => handleCaptureProjectLocation(),
+        }
+      : boundaryPoints.length === 0
+        ? {
+            label: '次：境界点を追加',
+            run: () => handleNewBoundaryPoint(),
+          }
+        : pointWithMissingInfo
+          ? {
+              label: `次：${pointWithMissingInfo.name}の情報を入力`,
+              run: () =>
+                handleEditBoundaryPoint(
+                  pointWithMissingInfo
+                ),
+            }
+          : pointWithoutPhoto
+            ? {
+                label: `次：${pointWithoutPhoto.name}の写真を登録`,
+                run: () => {
+                  void handleOpenBoundaryPoint(
+                    pointWithoutPhoto
+                  )
+                },
+              }
+            : null
 
     return (
       <div className="app">
@@ -1660,6 +1763,16 @@ function App() {
                 </li>
               ))}
             </ul>
+
+            {nextAction && (
+              <button
+                type="button"
+                className="save-button"
+                onClick={nextAction.run}
+              >
+                {nextAction.label}
+              </button>
+            )}
           </section>
 
           <section className="location-section">
