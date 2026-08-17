@@ -17,11 +17,15 @@ import { calculateProgress } from './progress'
 import './styles.css'
 
 type Screen = 'projectList' | 'projectEdit' | 'projectDetail' | 'pointEdit' | 'pointDetail'
+type ProjectSort = 'updatedDesc' | 'surveyDateDesc' | 'titleAsc'
 
 const PHOTO_CATEGORIES = ['全景', '境界標アップ', '接面道路', '周辺状況', '図面・資料', 'その他'] as const
+const PHOTO_TAG_SUGGESTIONS = ['道路側', '隣地側', '北側', '南側', '東側', '西側', '既設', '新設', '要確認'] as const
 const MARKER_TYPES = ['', 'コンクリート杭', '金属標', '金属鋲', 'プラスチック杭', 'その他']
 const CONDITIONS = ['', '良好', '傾き', '破損', '亡失', '確認不能']
 const isoNow = () => new Date().toISOString()
+const normalizeTag = (value: string) => value.trim().replace(/\s+/g, ' ')
+const uniqueTags = (values: string[]) => Array.from(new Set(values.map(normalizeTag).filter(Boolean)))
 
 const createProject = (): SurveyProject => {
   const createdAt = isoNow()
@@ -75,6 +79,8 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('projectList')
   const [projects, setProjects] = useState<SurveyProject[]>([])
   const [projectProgress, setProjectProgress] = useState<Record<string, number>>({})
+  const [projectQuery, setProjectQuery] = useState('')
+  const [projectSort, setProjectSort] = useState<ProjectSort>('updatedDesc')
   const [project, setProject] = useState<SurveyProject | null>(null)
   const [projectDraft, setProjectDraft] = useState<SurveyProject | null>(null)
   const [points, setPoints] = useState<BoundaryPoint[]>([])
@@ -83,6 +89,8 @@ export default function App() {
   const [photos, setPhotos] = useState<BoundaryPhoto[]>([])
   const [photoCounts, setPhotoCounts] = useState<Record<string, number>>({})
   const [category, setCategory] = useState<string>('境界標アップ')
+  const [captureTags, setCaptureTags] = useState<string[]>([])
+  const [newCaptureTag, setNewCaptureTag] = useState('')
   const [viewerIndex, setViewerIndex] = useState<number | null>(null)
   const [gpsBusy, setGpsBusy] = useState(false)
 
@@ -125,6 +133,31 @@ export default function App() {
     () => project ? calculateProgress(project, points, photoCounts) : null,
     [project, points, photoCounts],
   )
+
+  const visibleProjects = useMemo(() => {
+    const query = projectQuery.trim().toLocaleLowerCase('ja-JP')
+    const filtered = query
+      ? projects.filter((item) => [item.title, item.location, item.lotNumber]
+          .some((value) => value.toLocaleLowerCase('ja-JP').includes(query)))
+      : [...projects]
+
+    return filtered.sort((a, b) => {
+      if (projectSort === 'surveyDateDesc') {
+        return b.surveyDate.localeCompare(a.surveyDate) || b.updatedAt.localeCompare(a.updatedAt)
+      }
+      if (projectSort === 'titleAsc') {
+        return a.title.localeCompare(b.title, 'ja', { numeric: true })
+      }
+      return b.updatedAt.localeCompare(a.updatedAt)
+    })
+  }, [projectQuery, projectSort, projects])
+
+  const tagChoices = useMemo(() => {
+    const recent = [...photos]
+      .reverse()
+      .flatMap((photo) => photo.tags ?? [])
+    return uniqueTags([...captureTags, ...recent, ...PHOTO_TAG_SUGGESTIONS]).slice(0, 14)
+  }, [captureTags, photos])
 
   const openProject = async (nextProject: SurveyProject) => {
     setProject(nextProject)
@@ -202,6 +235,7 @@ export default function App() {
         projectId: project.id,
         boundaryPointId: point.id,
         category,
+        tags: captureTags.length ? [...captureTags] : undefined,
         fileName: file.name,
         fileType: file.type,
         fileSize: file.size,
@@ -224,6 +258,35 @@ export default function App() {
     if (!point) return
     await savePhoto({ ...target, category: nextCategory })
     await refreshPhotos(point.id)
+  }
+
+  const updatePhotoTags = async (target: BoundaryPhoto, tags: string[]) => {
+    if (!point) return
+    await savePhoto({ ...target, tags: tags.length ? uniqueTags(tags) : undefined })
+    await refreshPhotos(point.id)
+  }
+
+  const toggleCaptureTag = (tag: string) => {
+    setCaptureTags((current) => current.includes(tag)
+      ? current.filter((value) => value !== tag)
+      : [...current, tag])
+  }
+
+  const addCaptureTag = () => {
+    const tag = normalizeTag(newCaptureTag)
+    if (!tag) return
+    setCaptureTags((current) => uniqueTags([...current, tag]))
+    setNewCaptureTag('')
+  }
+
+  const addTagToPhoto = async (target: BoundaryPhoto, value: string) => {
+    const tag = normalizeTag(value)
+    if (!tag) return
+    await updatePhotoTags(target, [...(target.tags ?? []), tag])
+  }
+
+  const removeTagFromPhoto = async (target: BoundaryPhoto, tag: string) => {
+    await updatePhotoTags(target, (target.tags ?? []).filter((value) => value !== tag))
   }
 
   const removePhoto = async (target: BoundaryPhoto) => {
@@ -331,6 +394,18 @@ export default function App() {
 
           <section>
             <div className="section-head"><h2>写真 <small>{photos.length}枚</small></h2><select value={category} onChange={(e) => setCategory(e.target.value)}>{PHOTO_CATEGORIES.map((value) => <option key={value}>{value}</option>)}</select></div>
+            <div className="photo-organize-card">
+              <div className="photo-organize-title"><strong>撮影時タグ</strong><small>複数選択できます。選択中のタグを新しい写真へ付けます。</small></div>
+              <div className="tag-chip-list">
+                {tagChoices.map((tag) => (
+                  <button key={tag} type="button" className={captureTags.includes(tag) ? 'tag-chip active' : 'tag-chip'} onClick={() => toggleCaptureTag(tag)}>{tag}</button>
+                ))}
+              </div>
+              <div className="tag-add-row">
+                <input value={newCaptureTag} onChange={(e) => setNewCaptureTag(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCaptureTag() } }} placeholder="タグを追加" aria-label="撮影時タグを追加" />
+                <button type="button" onClick={addCaptureTag}>追加</button>
+              </div>
+            </div>
             <div className="picker-row">
               <PickerInput label="📷 撮影" className="camera-picker" inputProps={{ accept: 'image/*', capture: 'environment' }} onFiles={addPhotos} />
               <PickerInput label="🖼 写真から選択" inputProps={{ accept: 'image/*', multiple: true }} onFiles={addPhotos} />
@@ -340,6 +415,17 @@ export default function App() {
                 <article className="photo-card" key={photo.id}>
                   <PhotoThumb photo={photo} onOpen={() => setViewerIndex(index)} />
                   <select value={photo.category || ''} onChange={(e) => void updatePhotoCategory(photo, e.target.value)}><option value="">未分類</option>{PHOTO_CATEGORIES.map((value) => <option key={value}>{value}</option>)}</select>
+                  <div className="photo-tags">
+                    <div className="tag-chip-list compact">
+                      {(photo.tags ?? []).length === 0
+                        ? <span className="tag-empty">タグなし</span>
+                        : (photo.tags ?? []).map((tag) => <button key={tag} type="button" className="tag-chip removable" onClick={() => void removeTagFromPhoto(photo, tag)} aria-label={`${tag}タグを削除`}>{tag} ×</button>)}
+                    </div>
+                    <form className="photo-tag-form" onSubmit={(e) => { e.preventDefault(); const input = e.currentTarget.elements.namedItem('tag'); if (!(input instanceof HTMLInputElement)) return; const value = input.value; input.value = ''; void addTagToPhoto(photo, value) }}>
+                      <input name="tag" placeholder="タグ追加" aria-label={`${photo.fileName}にタグを追加`} />
+                      <button type="submit">追加</button>
+                    </form>
+                  </div>
                   <div className="photo-actions"><button type="button" onClick={() => savePhotoToDevice(photo)}>端末保存</button><button type="button" className="danger-button" onClick={() => void removePhoto(photo)}>削除</button></div>
                 </article>
               ))}
@@ -376,10 +462,18 @@ export default function App() {
     <div className="app-shell">
       <Header title="現場調査" />
       <main className="content-screen">
-        {projects.length === 0 ? <div className="empty-card large">案件がありません<br /><small>右下の＋から案件を登録してください</small></div> : projects.map((item) => {
-          const percentage = projectProgress[item.id]
-          return <div className="project-card" key={item.id}><button type="button" className="project-main" onClick={() => void openProject(item)}><strong>{item.title}{percentage !== undefined && <span style={{ marginLeft: 8, color: percentage === 100 ? '#23733c' : '#1267b9', WebkitTextFillColor: percentage === 100 ? '#23733c' : '#1267b9', fontSize: 13, fontWeight: 700 }}>{percentage === 100 ? '完了' : `${percentage}%`}</span>}</strong><span>{item.location || '所在地未入力'} ／ {item.surveyDate}</span></button><button type="button" className="project-delete" onClick={() => void removeProject(item)}>削除</button></div>
-        })}
+        <section className="project-tools" aria-label="案件検索と並び替え">
+          <label className="project-search">案件検索<input type="search" value={projectQuery} onChange={(e) => setProjectQuery(e.target.value)} placeholder="案件名・所在地・地番" /></label>
+          <label className="project-sort">並び替え<select value={projectSort} onChange={(e) => setProjectSort(e.target.value as ProjectSort)}><option value="updatedDesc">更新が新しい順</option><option value="surveyDateDesc">調査日が新しい順</option><option value="titleAsc">案件名順</option></select></label>
+        </section>
+        {projects.length === 0
+          ? <div className="empty-card large">案件がありません<br /><small>右下の＋から案件を登録してください</small></div>
+          : visibleProjects.length === 0
+            ? <div className="empty-card">検索条件に一致する案件がありません</div>
+            : visibleProjects.map((item) => {
+                const percentage = projectProgress[item.id]
+                return <div className="project-card" key={item.id}><button type="button" className="project-main" onClick={() => void openProject(item)}><strong>{item.title}{percentage !== undefined && <span style={{ marginLeft: 8, color: percentage === 100 ? '#23733c' : '#1267b9', WebkitTextFillColor: percentage === 100 ? '#23733c' : '#1267b9', fontSize: 13, fontWeight: 700 }}>{percentage === 100 ? '完了' : `${percentage}%`}</span>}</strong><span>{item.location || '所在地未入力'} ／ {item.surveyDate}</span></button><button type="button" className="project-delete" onClick={() => void removeProject(item)}>削除</button></div>
+              })}
         <button type="button" className="floating-button" aria-label="案件を追加" onClick={() => { setProject(null); setProjectDraft(createProject()); setScreen('projectEdit') }}>＋</button>
       </main>
     </div>
