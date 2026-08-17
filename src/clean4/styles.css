@@ -1,0 +1,494 @@
+:root,
+html,
+body,
+#root {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100%;
+  color: #222222;
+  background: #f5f6f8;
+  color-scheme: light only;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+html,
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+body {
+  -webkit-text-size-adjust: 100%;
+}
+
+#root {
+  width: 100%;
+  max-width: none;
+  border: 0;
+  text-align: initial;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.app-shell,
+.app-shell * {
+  color-scheme: light only;
+}
+
+.app-shell button,
+.app-shell input,
+.app-shell select,
+.app-shell textarea {
+  font: inherit;
+}
+
+.app-shell input,
+.app-shell select,
+.app-shell textarea {
+  color: #222222 !important;
+  background-color: #ffffff !important;
+  -webkit-text-fill-color: #222222 !important;
+}
+
+.app-shell input::placeholder,
+.app-shell textarea::placeholder {
+  color: #888888 !important;
+  -webkit-text-fill-color: #888888 !important;
+  opacity: 1;
+}
+
+.app-shell button {
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
+.app-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #f5f6f8 !important;
+  color: #222222 !important;
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  min-height: calc(60px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 16px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #ffffff !important;
+  border-bottom: 1px solid #dddddd;
+}
+
+.app-header h1 {
+  margin: 0;
+  color: #111111 !important;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.back-button {
+  border: 0;
+  padding: 4px 12px 4px 0;
+  background: transparent !important;
+  color: #111111 !important;
+  -webkit-text-fill-color: #111111 !important;
+  font-size: 32px;
+}
+
+.content-screen,
+.form-screen {
+  width: min(100%, 720px);
+  margin: 0 auto;
+  padding: 18px 16px calc(100px + env(safe-area-inset-bottom));
+}
+
+.form-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.form-screen label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  color: #222222 !important;
+  font-weight: 650;
+}
+
+.form-screen input,
+.form-screen select,
+.form-screen textarea,
+.section-head select,
+.photo-card select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #c9c9c9;
+  border-radius: 9px;
+  outline: none;
+}
+
+.form-screen input:focus,
+.form-screen select:focus,
+.form-screen textarea:focus,
+.section-head select:focus,
+.photo-card select:focus {
+  border-color: #1976d2;
+}
+
+.check-row {
+  flex-direction: row !important;
+  align-items: center;
+}
+
+.check-row input {
+  width: 20px;
+  height: 20px;
+}
+
+.primary-button {
+  border: 0;
+  border-radius: 10px;
+  padding: 14px;
+  background: #1976d2 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  font-weight: 700;
+}
+
+.card,
+.empty-card,
+.project-card,
+.list-card,
+.photo-card {
+  background: #ffffff !important;
+  color: #222222 !important;
+  border: 1px solid #dddddd;
+}
+
+.card {
+  margin-bottom: 18px;
+  padding: 17px;
+  border-radius: 14px;
+}
+
+.card h2,
+.section-head h2 {
+  margin: 0;
+  color: #111111 !important;
+  font-size: 18px;
+}
+
+.card p {
+  margin: 7px 0;
+  color: #555555 !important;
+}
+
+.card-head,
+.section-head,
+.button-row,
+.photo-actions,
+.picker-row,
+.progress-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.small-button,
+.button-row button,
+.photo-actions button {
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 12px;
+  background: #e8f2ff !important;
+  color: #1267b9 !important;
+  -webkit-text-fill-color: #1267b9 !important;
+  font-weight: 600;
+}
+
+.section-head {
+  margin: 22px 0 12px;
+}
+
+.section-head small {
+  color: #777777 !important;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.section-head select {
+  width: auto;
+  min-width: 150px;
+}
+
+.project-card,
+.list-card {
+  display: flex;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.project-main,
+.list-main {
+  flex: 1;
+  border: 0;
+  padding: 15px 16px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #ffffff !important;
+  color: #222222 !important;
+  -webkit-text-fill-color: #222222 !important;
+}
+
+.project-main strong,
+.list-main strong {
+  color: #111111 !important;
+  font-size: 17px;
+}
+
+.project-main span,
+.list-main span {
+  color: #666666 !important;
+  -webkit-text-fill-color: #666666 !important;
+  font-size: 14px;
+}
+
+.project-delete,
+.list-delete {
+  width: 70px;
+  border: 0;
+  border-left: 1px solid #eeeeee;
+  background: #ffffff !important;
+  color: #d52222 !important;
+  -webkit-text-fill-color: #d52222 !important;
+}
+
+.floating-button {
+  position: fixed;
+  right: 24px;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  width: 60px;
+  height: 60px;
+  border: 0;
+  border-radius: 50%;
+  background: #1976d2 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  font-size: 32px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.empty-card {
+  margin-top: 24px;
+  padding: 34px 16px;
+  border-style: dashed;
+  border-radius: 14px;
+  text-align: center;
+  color: #666666 !important;
+}
+
+.empty-card.large {
+  margin-top: 80px;
+}
+
+.empty-card small {
+  color: #777777 !important;
+}
+
+.progress-card ul {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.progress-card li {
+  padding: 5px 0;
+}
+
+.progress-card .done {
+  color: #23733c !important;
+}
+
+.progress-card .todo {
+  color: #9a5a00 !important;
+}
+
+.progress-title strong {
+  color: #1267b9 !important;
+}
+
+.progress-track {
+  height: 8px;
+  margin-top: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e6edf5;
+}
+
+.progress-track > div {
+  height: 100%;
+  background: #1976d2;
+}
+
+.picker-row {
+  margin-bottom: 14px;
+}
+
+.picker-control {
+  position: relative;
+  flex: 1;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #1976d2 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  font-weight: 700;
+}
+
+.picker-control.camera-picker {
+  background: #168447 !important;
+}
+
+.picker-control span {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  pointer-events: none;
+}
+
+.picker-control input[type="file"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.photo-card {
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.photo-thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  background: #eeeeee !important;
+}
+
+.photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-thumb span {
+  position: absolute;
+  left: 7px;
+  bottom: 7px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.7) !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  font-size: 11px;
+}
+
+.photo-card select {
+  width: calc(100% - 16px);
+  margin: 8px;
+  padding: 8px;
+}
+
+.photo-actions {
+  padding: 0 8px 8px;
+}
+
+.photo-actions button {
+  flex: 1;
+}
+
+.danger-button {
+  color: #d52222 !important;
+  -webkit-text-fill-color: #d52222 !important;
+  background: #fff0f0 !important;
+}
+
+/* PhotoSwipeは黒背景のViewerとして固定。通常画面のlight固定とは分離する。 */
+.pswp {
+  --pswp-bg: #050505;
+  color-scheme: dark;
+}
+
+.pswp__top-bar {
+  padding-top: env(safe-area-inset-top);
+}
+
+.pswp__button {
+  width: 52px;
+  height: 52px;
+  touch-action: manipulation;
+  background-color: transparent !important;
+}
+
+.pswp__button--close,
+.pswp__button--zoom {
+  margin-top: env(safe-area-inset-top);
+}
+
+.pswp__counter {
+  margin-top: env(safe-area-inset-top);
+  color: #ffffff !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root,
+  html,
+  body,
+  #root,
+  .app-shell {
+    color: #222222 !important;
+    background: #f5f6f8 !important;
+    color-scheme: light only;
+  }
+}
+
+@media (max-width: 480px) {
+  .picker-row,
+  .button-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .picker-control {
+    width: 100%;
+    flex: none;
+  }
+
+  .section-head {
+    align-items: flex-start;
+  }
+}
