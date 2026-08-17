@@ -37,6 +37,9 @@ export type BoundaryPhoto = {
   // 写真種別
   category?: string
 
+  // 任意の整理タグ。既存写真は未定義のまま互換利用する。
+  tags?: string[]
+
   fileName: string
   fileType: string
   fileSize: number
