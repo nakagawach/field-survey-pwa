@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { BoundaryPhoto, BoundaryPoint, SurveyProject } from '../types'
+import type { BoundaryPhoto, BoundaryPoint, FieldChecklist, SurveyProject } from '../types'
 import {
   deleteBoundaryPoint,
   deletePhoto,
@@ -18,14 +18,33 @@ import './styles.css'
 
 type Screen = 'projectList' | 'projectEdit' | 'projectDetail' | 'pointEdit' | 'pointDetail'
 type ProjectSort = 'updatedDesc' | 'surveyDateDesc' | 'titleAsc'
+type FieldChecklistKey = keyof FieldChecklist
 
 const PHOTO_CATEGORIES = ['全景', '境界標アップ', '接面道路', '周辺状況', '図面・資料', 'その他'] as const
 const PHOTO_TAG_SUGGESTIONS = ['道路側', '隣地側', '北側', '南側', '東側', '西側', '既設', '新設', '要確認'] as const
 const MARKER_TYPES = ['', 'コンクリート杭', '金属標', '金属鋲', 'プラスチック杭', 'その他']
 const CONDITIONS = ['', '良好', '傾き', '破損', '亡失', '確認不能']
+const FIELD_CHECKLIST_ITEMS: Array<{ key: FieldChecklistKey; label: string }> = [
+  { key: 'siteAccessChecked', label: '現地・接道状況を確認' },
+  { key: 'boundaryLayoutChecked', label: '境界点の配置・見落としを確認' },
+  { key: 'photoReviewChecked', label: '必要写真の撮り忘れを確認' },
+  { key: 'notesLocationChecked', label: 'メモ・位置情報を確認' },
+  { key: 'finalWalkthroughChecked', label: '撤収前の最終確認' },
+]
+const EMPTY_FIELD_CHECKLIST: FieldChecklist = {
+  siteAccessChecked: false,
+  boundaryLayoutChecked: false,
+  photoReviewChecked: false,
+  notesLocationChecked: false,
+  finalWalkthroughChecked: false,
+}
 const isoNow = () => new Date().toISOString()
 const normalizeTag = (value: string) => value.trim().replace(/\s+/g, ' ')
 const uniqueTags = (values: string[]) => Array.from(new Set(values.map(normalizeTag).filter(Boolean)))
+const getFieldChecklist = (project: SurveyProject): FieldChecklist => ({
+  ...EMPTY_FIELD_CHECKLIST,
+  ...(project.fieldChecklist ?? {}),
+})
 
 const createProject = (): SurveyProject => {
   const createdAt = isoNow()
@@ -186,6 +205,25 @@ export default function App() {
     }
   }
 
+  const duplicateProjectDraft = (source: SurveyProject) => {
+    const createdAt = isoNow()
+    setProject(null)
+    setPoint(null)
+    setProjectDraft({
+      id: crypto.randomUUID(),
+      title: `${source.title}（コピー）`,
+      location: source.location,
+      lotNumber: source.lotNumber,
+      surveyDate: createdAt.slice(0, 10),
+      landCategory: source.landCategory,
+      boundaryChecked: false,
+      memo: source.memo,
+      createdAt,
+      updatedAt: createdAt,
+    })
+    setScreen('projectEdit')
+  }
+
   const removeProject = async (target: SurveyProject) => {
     if (!window.confirm(`「${target.title}」を削除しますか？\n境界点と写真も削除されます。`)) return
     await deleteProject(target.id)
@@ -339,6 +377,19 @@ export default function App() {
     )
   }
 
+  const toggleFieldChecklist = async (key: FieldChecklistKey) => {
+    if (!project) return
+    const current = getFieldChecklist(project)
+    const saved: SurveyProject = {
+      ...project,
+      fieldChecklist: { ...current, [key]: !current[key] },
+      updatedAt: isoNow(),
+    }
+    await saveProject(saved)
+    setProject(saved)
+    await refreshProjects()
+  }
+
   const Header = ({ title, onBack }: { title: string; onBack?: () => void }) => (
     <header className="app-header">
       {onBack && <button type="button" className="back-button" onClick={onBack} aria-label="戻る">‹</button>}
@@ -383,6 +434,10 @@ export default function App() {
   }
 
   if (screen === 'pointDetail' && project && point) {
+    const currentPointIndex = points.findIndex((item) => item.id === point.id)
+    const previousPoint = currentPointIndex > 0 ? points[currentPointIndex - 1] : null
+    const nextPoint = currentPointIndex >= 0 && currentPointIndex < points.length - 1 ? points[currentPointIndex + 1] : null
+
     return (
       <div className="app-shell">
         <Header title={point.name} onBack={() => setScreen('projectDetail')} />
@@ -431,6 +486,17 @@ export default function App() {
               ))}
             </div>
           </section>
+
+          {points.length > 1 && (
+            <section className="card boundary-nav-card">
+              <div className="progress-title"><h2>境界点移動</h2><strong>{currentPointIndex + 1}/{points.length}</strong></div>
+              <div className="button-row">
+                <button type="button" className="small-button" disabled={!previousPoint} onClick={() => { if (previousPoint) void openPoint(previousPoint) }}>← {previousPoint?.name ?? '前なし'}</button>
+                <button type="button" className="small-button" disabled={!nextPoint} onClick={() => { if (nextPoint) void openPoint(nextPoint) }}>{nextPoint?.name ?? '次なし'} →</button>
+              </div>
+            </section>
+          )}
+
           {viewerIndex !== null && <PhotoViewer photos={photos} index={viewerIndex} onIndexChange={setViewerIndex} onClose={() => setViewerIndex(null)} />}
         </main>
       </div>
@@ -438,18 +504,55 @@ export default function App() {
   }
 
   if (screen === 'projectDetail' && project) {
+    const pointWithMissingInfo = points.find((item) => !item.markerType.trim() || !item.condition.trim()) ?? null
+    const pointWithoutPhoto = points.find((item) => (photoCounts[item.id] ?? 0) === 0) ?? null
+    const hasGps = project.latitude !== undefined && project.longitude !== undefined
+    const fieldChecklist = getFieldChecklist(project)
+    const completedFieldChecks = FIELD_CHECKLIST_ITEMS.filter(({ key }) => fieldChecklist[key]).length
+
+    const nextAction = !hasGps
+      ? { label: '次にやる：GPSを取得', run: () => captureGps() }
+      : points.length === 0
+        ? { label: '次にやる：境界点を追加', run: () => { setPoint(null); setPointDraft(createPoint(project.id, 1)); setScreen('pointEdit') } }
+        : pointWithMissingInfo
+          ? { label: `次にやる：${pointWithMissingInfo.name}の情報を入力`, run: () => { setPoint(pointWithMissingInfo); setPointDraft({ ...pointWithMissingInfo, positionMemo: pointWithMissingInfo.positionMemo ?? '' }); setScreen('pointEdit') } }
+          : pointWithoutPhoto
+            ? { label: `次にやる：${pointWithoutPhoto.name}の写真を登録`, run: () => { void openPoint(pointWithoutPhoto) } }
+            : !project.boundaryChecked
+              ? { label: '次にやる：境界確認を入力', run: () => { setProjectDraft({ ...project }); setScreen('projectEdit') } }
+              : null
+
     return (
       <div className="app-shell">
         <Header title={project.title} onBack={() => { setProject(null); setPoint(null); setScreen('projectList'); void refreshProjects() }} />
         <main className="content-screen">
           <section className="card">
-            <div className="card-head"><div><h2>{project.location || '所在地未入力'}</h2><p>{project.lotNumber || '地番未入力'} ／ {project.surveyDate}</p></div><button type="button" className="small-button" onClick={() => { setProjectDraft({ ...project }); setScreen('projectEdit') }}>編集</button></div>
+            <div className="card-head">
+              <div><h2>{project.location || '所在地未入力'}</h2><p>{project.lotNumber || '地番未入力'} ／ {project.surveyDate}</p></div>
+              <div className="project-detail-actions">
+                <button type="button" className="small-button" onClick={() => { setProjectDraft({ ...project }); setScreen('projectEdit') }}>編集</button>
+                <button type="button" className="small-button" onClick={() => duplicateProjectDraft(project)}>複製</button>
+              </div>
+            </div>
             <p>{project.landCategory || '地目未入力'} ／ {project.boundaryChecked ? '境界確認済み' : '境界未確認'}</p><p>{project.memo || 'メモなし'}</p>
           </section>
 
           <section className="card"><h2>位置情報</h2>{project.latitude !== undefined && project.longitude !== undefined ? <p>{project.latitude.toFixed(6)}, {project.longitude.toFixed(6)}　精度 ±{Math.round(project.accuracy ?? 0)}m</p> : <p>未取得</p>}<div className="button-row"><button type="button" disabled={gpsBusy} onClick={captureGps}>{gpsBusy ? '取得中…' : '現在地を取得'}</button>{project.latitude !== undefined && project.longitude !== undefined && <button type="button" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${project.latitude},${project.longitude}`, '_blank', 'noopener,noreferrer')}>Googleマップ</button>}</div></section>
 
-          {progress && <section className="card progress-card"><div className="progress-title"><h2>調査進捗</h2><strong>{progress.percentage}%</strong></div><div className="progress-track"><div style={{ width: `${progress.percentage}%` }} /></div><ul>{progress.items.map((item) => <li key={item.text} className={item.complete ? 'done' : 'todo'}>{item.complete ? '✓' : '!'} {item.text}</li>)}</ul></section>}
+          {progress && <section className="card progress-card"><div className="progress-title"><h2>調査進捗</h2><strong>{progress.percentage}%</strong></div><div className="progress-track"><div style={{ width: `${progress.percentage}%` }} /></div><ul>{progress.items.map((item) => <li key={item.text} className={item.complete ? 'done' : 'todo'}>{item.complete ? '✓' : '!'} {item.text}</li>)}</ul>{nextAction && <div className="button-row"><button type="button" className="primary-button" disabled={gpsBusy && !hasGps} onClick={nextAction.run}>{gpsBusy && !hasGps ? 'GPS取得中…' : nextAction.label}</button></div>}</section>}
+
+          <section className="card field-checklist-card">
+            <div className="progress-title"><h2>現場チェック</h2><strong>{completedFieldChecks}/{FIELD_CHECKLIST_ITEMS.length}</strong></div>
+            <div className="field-checklist-list">
+              {FIELD_CHECKLIST_ITEMS.map(({ key, label }) => (
+                <label key={key} className={fieldChecklist[key] ? 'field-check-item checked' : 'field-check-item'}>
+                  <input type="checkbox" checked={fieldChecklist[key]} onChange={() => void toggleFieldChecklist(key)} />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+            <p className="field-check-help">調査進捗とは別の、現場での手動確認用チェックです。</p>
+          </section>
 
           <section><div className="section-head"><h2>境界点 <small>{points.length}件</small></h2></div>{points.length === 0 ? <div className="empty-card">境界点を追加してください</div> : points.map((item) => <div className="list-card" key={item.id}><button type="button" className="list-main" onClick={() => void openPoint(item)}><strong>{item.name}</strong><span>{item.markerType || '種類未設定'} ／ {item.condition || '状態未設定'} ／ 写真 {photoCounts[item.id] ?? 0}枚</span></button><button type="button" className="list-delete" onClick={() => void removePoint(item)}>削除</button></div>)}</section>
           <button type="button" className="floating-button" aria-label="境界点を追加" onClick={() => { setPoint(null); setPointDraft(createPoint(project.id, points.length + 1)); setScreen('pointEdit') }}>＋</button>
