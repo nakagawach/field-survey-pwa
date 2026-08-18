@@ -564,7 +564,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <Header title="現場調査" />
+      <Header title="現場調査アプリ（バージョンv1.1）" />
       <main className="content-screen">
         <section className="project-tools" aria-label="案件検索と並び替え">
           <label className="project-search">案件検索<input type="search" value={projectQuery} onChange={(e) => setProjectQuery(e.target.value)} placeholder="案件名・所在地・地番" /></label>
