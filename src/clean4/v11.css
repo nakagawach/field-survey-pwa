@@ -48,6 +48,22 @@
   margin-top: 10px;
 }
 
+/* Initial screen title: keep the version visually secondary. */
+.app-header:not(:has(.back-button)) h1 {
+  font-size: 0;
+}
+
+.app-header:not(:has(.back-button)) h1::before {
+  content: '現場調査アプリ';
+  font-size: 20px;
+}
+
+.app-header:not(:has(.back-button)) h1::after {
+  content: ' (v1.1)';
+  font-size: 14px;
+  font-weight: 600;
+}
+
 @media (max-width: 480px) {
   .project-detail-actions {
     flex-direction: column;
