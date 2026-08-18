@@ -1,3 +1,11 @@
+export type FieldChecklist = {
+  siteAccessChecked: boolean
+  boundaryLayoutChecked: boolean
+  photoReviewChecked: boolean
+  notesLocationChecked: boolean
+  finalWalkthroughChecked: boolean
+}
+
 export type SurveyProject = {
   id: string
   title: string
@@ -12,6 +20,9 @@ export type SurveyProject = {
   longitude?: number
   accuracy?: number
   locationCapturedAt?: string
+
+  // 現場での手動確認用。既存案件は未定義のまま互換利用する。
+  fieldChecklist?: Partial<FieldChecklist>
 
   createdAt: string
   updatedAt: string
@@ -36,6 +47,9 @@ export type BoundaryPhoto = {
 
   // 写真種別
   category?: string
+
+  // 任意の整理タグ。既存写真は未定義のまま互換利用する。
+  tags?: string[]
 
   fileName: string
   fileType: string
