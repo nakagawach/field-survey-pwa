@@ -249,6 +249,7 @@ export default function App() {
     setPointDraft(null)
 
     if (point?.id === saved.id) {
+      await refreshPhotos(saved.id)
       setPoint(saved)
       setScreen('pointDetail')
     } else {
