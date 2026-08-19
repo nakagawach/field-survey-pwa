@@ -304,6 +304,71 @@
   box-shadow: 0 10px 36px rgba(0, 0, 0, 0.28);
 }
 
+/* Photo focus: show clearly which card is being edited and where new photos land. */
+.photo-card {
+  position: relative;
+  scroll-margin-top: 78px;
+  scroll-margin-bottom: calc(170px + env(safe-area-inset-bottom));
+  transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+}
+
+.photo-card:has(.photo-tag-editor[open]) {
+  border-color: #1976d2;
+  background: #f7fbff !important;
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.16), 0 8px 22px rgba(0, 0, 0, 0.12);
+}
+
+.photo-card:has(.photo-tag-editor[open])::before {
+  content: '編集中';
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 3;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #1976d2 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  font-size: 11px;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+.tag-editor-photo-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid #d9e5f2;
+  border-radius: 10px;
+  background: #f7fbff !important;
+}
+
+.tag-editor-photo-preview > div {
+  width: 82px;
+  flex: none;
+  pointer-events: none;
+}
+
+.tag-editor-photo-preview .photo-thumb {
+  width: 82px;
+  min-height: 64px;
+  aspect-ratio: 4 / 3;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tag-editor-photo-preview .photo-thumb span {
+  display: none;
+}
+
+.tag-editor-photo-preview strong {
+  color: #1267b9 !important;
+  -webkit-text-fill-color: #1267b9 !important;
+  font-size: 14px;
+}
+
 .point-action-row {
   min-height: 66px;
   padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
@@ -406,6 +471,11 @@
 
   .capture-tag-menu-panel {
     right: -2px;
+  }
+
+  .tag-editor-photo-preview > div,
+  .tag-editor-photo-preview .photo-thumb {
+    width: 72px;
   }
 
   .point-action-row {
