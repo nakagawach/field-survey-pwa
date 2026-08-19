@@ -175,7 +175,7 @@ export default function App() {
     const recent = [...photos]
       .reverse()
       .flatMap((photo) => photo.tags ?? [])
-    return uniqueTags([...captureTags, ...recent, ...PHOTO_TAG_SUGGESTIONS]).slice(0, 14)
+    return uniqueTags([...recent, ...PHOTO_TAG_SUGGESTIONS, ...captureTags]).slice(0, 14)
   }, [captureTags, photos])
 
   const openProject = async (nextProject: SurveyProject) => {
@@ -440,9 +440,9 @@ export default function App() {
     const nextPoint = currentPointIndex >= 0 && currentPointIndex < points.length - 1 ? points[currentPointIndex + 1] : null
 
     return (
-      <div className="app-shell">
+      <div className="app-shell point-detail-shell">
         <Header title={point.name} onBack={() => setScreen('projectDetail')} />
-        <main className="content-screen">
+        <main className="content-screen point-detail-content">
           <section className="card">
             <div className="card-head"><div><h2>{point.markerType || '境界標未設定'}</h2><p>{point.condition || '状態未設定'}</p></div><button type="button" className="small-button" onClick={() => { setPointDraft({ ...point }); setScreen('pointEdit') }}>編集</button></div>
             <p>{point.positionMemo || '位置関係メモなし'}</p><p>{point.memo || 'メモなし'}</p>
@@ -450,20 +450,7 @@ export default function App() {
 
           <section>
             <div className="section-head"><h2>写真 <small>{photos.length}枚</small></h2><select value={category} onChange={(e) => setCategory(e.target.value)}>{PHOTO_CATEGORIES.map((value) => <option key={value}>{value}</option>)}</select></div>
-            <div className="photo-organize-card">
-              <div className="photo-organize-title"><strong>撮影時タグ</strong><small>複数選択できます。選択中のタグを新しい写真へ付けます。</small></div>
-              <div className="tag-chip-list">
-                {tagChoices.map((tag) => (
-                  <button key={tag} type="button" className={captureTags.includes(tag) ? 'tag-chip active' : 'tag-chip'} onClick={() => toggleCaptureTag(tag)}>{tag}</button>
-                ))}
-              </div>
-              <div className="tag-add-row">
-                <input value={newCaptureTag} onChange={(e) => setNewCaptureTag(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCaptureTag() } }} placeholder="タグを追加" aria-label="撮影時タグを追加" />
-                <button type="button" onClick={addCaptureTag}>追加</button>
-              </div>
-            </div>
-            <div className="picker-row">
-              <PickerInput label="📷 撮影" className="camera-picker" inputProps={{ accept: 'image/*', capture: 'environment' }} onFiles={addPhotos} />
+            <div className="picker-row point-photo-picker-row">
               <PickerInput label="🖼 写真から選択" inputProps={{ accept: 'image/*', multiple: true }} onFiles={addPhotos} />
             </div>
             <div className="photo-grid">
@@ -488,15 +475,51 @@ export default function App() {
             </div>
           </section>
 
-          {points.length > 1 && (
-            <section className="card boundary-nav-card">
-              <div className="progress-title"><h2>境界点移動</h2><strong>{currentPointIndex + 1}/{points.length}</strong></div>
-              <div className="button-row">
-                <button type="button" className="small-button" disabled={!previousPoint} onClick={() => { if (previousPoint) void openPoint(previousPoint) }}>← {previousPoint?.name ?? '前なし'}</button>
-                <button type="button" className="small-button" disabled={!nextPoint} onClick={() => { if (nextPoint) void openPoint(nextPoint) }}>{nextPoint?.name ?? '次なし'} →</button>
+          <footer className="point-action-footer" aria-label="境界点の撮影操作">
+            <div className="capture-tag-summary-row">
+              <div className="capture-tag-current" aria-label="現在の撮影タグ">
+                <span className="capture-tag-label">🏷</span>
+                <div className="capture-tag-current-list">
+                  {captureTags.length === 0
+                    ? <span className="capture-tag-none">タグなし</span>
+                    : captureTags.slice(0, 3).map((tag) => <span key={tag} className="capture-tag-current-chip">{tag}</span>)}
+                  {captureTags.length > 3 && <span className="capture-tag-more">+{captureTags.length - 3}</span>}
+                </div>
               </div>
-            </section>
-          )}
+              <details className="capture-tag-menu">
+                <summary>変更</summary>
+                <div className="capture-tag-menu-panel">
+                  <div className="capture-tag-menu-head">
+                    <strong>撮影タグを選択</strong>
+                    <small>選択しても候補の位置は変わりません。</small>
+                  </div>
+                  <div className="capture-tag-selected-preview">
+                    <span>選択中</span>
+                    <div className="tag-chip-list compact">
+                      {captureTags.length === 0
+                        ? <span className="tag-empty">タグなし</span>
+                        : captureTags.map((tag) => <span key={tag} className="tag-chip selected-preview">✓ {tag}</span>)}
+                    </div>
+                  </div>
+                  <div className="tag-chip-list capture-tag-choices">
+                    {tagChoices.map((tag) => (
+                      <button key={tag} type="button" className={captureTags.includes(tag) ? 'tag-chip active' : 'tag-chip'} onClick={() => toggleCaptureTag(tag)}>{captureTags.includes(tag) ? `✓ ${tag}` : tag}</button>
+                    ))}
+                  </div>
+                  <div className="tag-add-row">
+                    <input value={newCaptureTag} onChange={(e) => setNewCaptureTag(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCaptureTag() } }} placeholder="新しいタグを追加" aria-label="撮影時タグを追加" />
+                    <button type="button" onClick={addCaptureTag}>追加</button>
+                  </div>
+                </div>
+              </details>
+            </div>
+            <div className="point-action-row">
+              <button type="button" className="point-nav-button" disabled={!previousPoint} onClick={() => { if (previousPoint) void openPoint(previousPoint) }}>← {previousPoint?.name ?? '前なし'}</button>
+              <div className="point-position" aria-label={`境界点 ${currentPointIndex + 1} / ${points.length}`}>{currentPointIndex + 1} / {points.length}</div>
+              <button type="button" className="point-nav-button" disabled={!nextPoint} onClick={() => { if (nextPoint) void openPoint(nextPoint) }}>{nextPoint?.name ?? '次なし'} →</button>
+              <PickerInput label="📷" className="camera-picker point-footer-camera" inputProps={{ accept: 'image/*', capture: 'environment' }} onFiles={addPhotos} />
+            </div>
+          </footer>
 
           {viewerIndex !== null && <PhotoViewer photos={photos} index={viewerIndex} onIndexChange={setViewerIndex} onClose={() => setViewerIndex(null)} />}
         </main>
