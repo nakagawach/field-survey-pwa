@@ -328,6 +328,13 @@ export default function App() {
     await updatePhotoTags(target, (target.tags ?? []).filter((value) => value !== tag))
   }
 
+  const togglePhotoTag = async (target: BoundaryPhoto, tag: string) => {
+    const current = target.tags ?? []
+    await updatePhotoTags(target, current.includes(tag)
+      ? current.filter((value) => value !== tag)
+      : [...current, tag])
+  }
+
   const removePhoto = async (target: BoundaryPhoto) => {
     if (!point || !window.confirm('この写真を削除しますか？')) return
     await deletePhoto(target.id)
@@ -458,16 +465,39 @@ export default function App() {
                 <article className="photo-card" key={photo.id}>
                   <PhotoThumb photo={photo} onOpen={() => setViewerIndex(index)} />
                   <select value={photo.category || ''} onChange={(e) => void updatePhotoCategory(photo, e.target.value)}><option value="">未分類</option>{PHOTO_CATEGORIES.map((value) => <option key={value}>{value}</option>)}</select>
-                  <div className="photo-tags">
+                  <div className="photo-tags photo-tags-summary">
                     <div className="tag-chip-list compact">
                       {(photo.tags ?? []).length === 0
                         ? <span className="tag-empty">タグなし</span>
-                        : (photo.tags ?? []).map((tag) => <button key={tag} type="button" className="tag-chip removable" onClick={() => void removeTagFromPhoto(photo, tag)} aria-label={`${tag}タグを削除`}>{tag} ×</button>)}
+                        : (photo.tags ?? []).map((tag) => <span key={tag} className="tag-chip photo-tag-display">{tag}</span>)}
                     </div>
-                    <form className="photo-tag-form" onSubmit={(e) => { e.preventDefault(); const input = e.currentTarget.elements.namedItem('tag'); if (!(input instanceof HTMLInputElement)) return; const value = input.value; input.value = ''; void addTagToPhoto(photo, value) }}>
-                      <input name="tag" placeholder="タグ追加" aria-label={`${photo.fileName}にタグを追加`} />
-                      <button type="submit">追加</button>
-                    </form>
+                    <details className="photo-tag-editor">
+                      <summary>タグ編集</summary>
+                      <div className="photo-tag-editor-panel">
+                        <div className="tag-editor-head">
+                          <div><strong>写真のタグ</strong><small>候補を押すとその場で追加・解除します。</small></div>
+                          <button type="button" className="tag-editor-close" aria-label="タグ編集を閉じる" onClick={(e) => e.currentTarget.closest('details')?.removeAttribute('open')}>×</button>
+                        </div>
+                        <div className="capture-tag-selected-preview">
+                          <span>現在</span>
+                          <div className="tag-chip-list compact">
+                            {(photo.tags ?? []).length === 0
+                              ? <span className="tag-empty">タグなし</span>
+                              : (photo.tags ?? []).map((tag) => <span key={tag} className="tag-chip selected-preview">✓ {tag}</span>)}
+                          </div>
+                        </div>
+                        <div className="tag-chip-list capture-tag-choices">
+                          {tagChoices.map((tag) => (
+                            <button key={tag} type="button" className={(photo.tags ?? []).includes(tag) ? 'tag-chip active' : 'tag-chip'} onClick={() => void togglePhotoTag(photo, tag)}>{(photo.tags ?? []).includes(tag) ? `✓ ${tag}` : tag}</button>
+                          ))}
+                        </div>
+                        <form className="photo-tag-form" onSubmit={(e) => { e.preventDefault(); const input = e.currentTarget.elements.namedItem('tag'); if (!(input instanceof HTMLInputElement)) return; const value = input.value; input.value = ''; void addTagToPhoto(photo, value) }}>
+                          <input name="tag" placeholder="新しいタグを追加" aria-label={`${photo.fileName}にタグを追加`} />
+                          <button type="submit">追加</button>
+                        </form>
+                        <button type="button" className="tag-editor-done" onClick={(e) => e.currentTarget.closest('details')?.removeAttribute('open')}>完了して閉じる</button>
+                      </div>
+                    </details>
                   </div>
                   <div className="photo-actions"><button type="button" onClick={() => savePhotoToDevice(photo)}>端末保存</button><button type="button" className="danger-button" onClick={() => void removePhoto(photo)}>削除</button></div>
                 </article>
@@ -489,9 +519,12 @@ export default function App() {
               <details className="capture-tag-menu">
                 <summary>変更</summary>
                 <div className="capture-tag-menu-panel">
-                  <div className="capture-tag-menu-head">
-                    <strong>撮影タグを選択</strong>
-                    <small>選択しても候補の位置は変わりません。</small>
+                  <div className="tag-editor-head">
+                    <div className="capture-tag-menu-head">
+                      <strong>撮影タグを選択</strong>
+                      <small>選択しても候補の位置は変わりません。</small>
+                    </div>
+                    <button type="button" className="tag-editor-close" aria-label="撮影タグ選択を閉じる" onClick={(e) => e.currentTarget.closest('details')?.removeAttribute('open')}>×</button>
                   </div>
                   <div className="capture-tag-selected-preview">
                     <span>選択中</span>
@@ -510,6 +543,7 @@ export default function App() {
                     <input value={newCaptureTag} onChange={(e) => setNewCaptureTag(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCaptureTag() } }} placeholder="新しいタグを追加" aria-label="撮影時タグを追加" />
                     <button type="button" onClick={addCaptureTag}>追加</button>
                   </div>
+                  <button type="button" className="tag-editor-done" onClick={(e) => e.currentTarget.closest('details')?.removeAttribute('open')}>完了して閉じる</button>
                 </div>
               </details>
             </div>
