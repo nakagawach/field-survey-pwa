@@ -48,6 +48,84 @@
   margin-top: 10px;
 }
 
+/* Point detail: keep the main field controls reachable while scrolling. */
+.photo-organize-card {
+  position: sticky;
+  top: calc(60px + env(safe-area-inset-top));
+  z-index: 12;
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.08);
+}
+
+.photo-organize-card .tag-chip-list {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.photo-organize-card .tag-chip-list::-webkit-scrollbar {
+  display: none;
+}
+
+.photo-organize-card .tag-chip {
+  flex: none;
+}
+
+.picker-control.camera-picker {
+  position: fixed;
+  right: 20px;
+  bottom: calc(112px + env(safe-area-inset-bottom));
+  z-index: 18;
+  width: 64px;
+  height: 64px;
+  min-height: 64px;
+  flex: none;
+  border-radius: 50%;
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.28);
+}
+
+.picker-control.camera-picker span {
+  font-size: 0;
+}
+
+.picker-control.camera-picker span::before {
+  content: '📷';
+  font-size: 28px;
+}
+
+.boundary-nav-card {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  z-index: 17;
+  width: min(100%, 720px);
+  margin: 0;
+  transform: translateX(-50%);
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  border-radius: 14px 14px 0 0;
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.12);
+}
+
+.boundary-nav-card .progress-title h2 {
+  font-size: 14px;
+}
+
+.boundary-nav-card .progress-title strong {
+  font-size: 13px;
+}
+
+.boundary-nav-card .button-row {
+  margin-top: 7px;
+}
+
+.boundary-nav-card .button-row button {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Initial screen title only: show a smaller version suffix. */
 .app-header:not(:has(.back-button)) h1 {
   font-size: 0;
@@ -72,5 +150,44 @@
 
   .project-detail-actions .small-button {
     width: 100%;
+  }
+
+  .photo-organize-card {
+    padding: 10px;
+  }
+
+  .photo-organize-title {
+    margin-bottom: 7px;
+  }
+
+  .photo-organize-title small {
+    display: none;
+  }
+
+  .photo-organize-card .tag-chip {
+    padding: 6px 9px;
+    font-size: 12px;
+  }
+
+  .photo-organize-card .tag-add-row {
+    margin-top: 7px;
+  }
+
+  .photo-organize-card .tag-add-row input,
+  .photo-organize-card .tag-add-row button {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .picker-control.camera-picker {
+    right: 14px;
+    width: 60px;
+    height: 60px;
+    min-height: 60px;
+  }
+
+  .boundary-nav-card {
+    padding-left: 10px;
+    padding-right: 86px;
   }
 }
