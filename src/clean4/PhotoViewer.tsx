@@ -187,8 +187,9 @@ export default function PhotoViewer({ photos, index, tagChoices, onClose, onInde
       })
 
       viewer.on('uiRegister', () => {
-        if (!viewer) return
-        viewer.ui.registerElement({
+        if (!viewer?.ui) return
+        const ui = viewer.ui
+        ui.registerElement({
           name: 'photo-tags',
           order: 9,
           isButton: true,
@@ -203,7 +204,7 @@ export default function PhotoViewer({ photos, index, tagChoices, onClose, onInde
             }
           },
         })
-        viewer.ui.registerElement({
+        ui.registerElement({
           name: 'photo-tag-panel',
           className: 'pswp__photo-tag-panel',
           appendTo: 'root',
