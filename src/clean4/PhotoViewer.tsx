@@ -58,6 +58,11 @@ export default function PhotoViewer({ photos, index, tagChoices, onClose, onInde
       void callbacksRef.current.onTagsChange(photo, nextTags)
     }
 
+    const closeTagPanel = () => {
+      tagPanelOpen = false
+      if (tagPanel) tagPanel.hidden = true
+    }
+
     const renderTagPanel = () => {
       if (!tagPanel || !tagPanelOpen) return
       const photo = getCurrentPhoto()
@@ -66,6 +71,16 @@ export default function PhotoViewer({ photos, index, tagChoices, onClose, onInde
 
       const tags = getPhotoTags(photo)
       const choices = uniqueTags([...tagChoicesRef.current, ...tags]).slice(0, 18)
+      const sheet = document.createElement('div')
+      sheet.className = 'pswp-tag-sheet'
+      sheet.style.setProperty('width', 'min(100%, 720px)', 'important')
+      sheet.style.setProperty('max-height', 'min(58vh, 560px)', 'important')
+      sheet.style.setProperty('overflow', 'auto', 'important')
+      sheet.style.setProperty('padding', '14px 14px calc(14px + env(safe-area-inset-bottom))', 'important')
+      sheet.style.setProperty('border-radius', '16px 16px 0 0', 'important')
+      sheet.style.setProperty('background', 'rgba(255, 255, 255, 0.99)', 'important')
+      sheet.style.setProperty('box-shadow', '0 -8px 30px rgba(0, 0, 0, 0.32)', 'important')
+      sheet.style.setProperty('touch-action', 'pan-y', 'important')
 
       const head = document.createElement('div')
       head.className = 'pswp-tag-head'
@@ -82,8 +97,7 @@ export default function PhotoViewer({ photos, index, tagChoices, onClose, onInde
       closeButton.textContent = '×'
       closeButton.addEventListener('click', (event) => {
         event.stopPropagation()
-        tagPanelOpen = false
-        if (tagPanel) tagPanel.hidden = true
+        closeTagPanel()
       })
       head.append(titleWrap, closeButton)
 
@@ -153,7 +167,8 @@ export default function PhotoViewer({ photos, index, tagChoices, onClose, onInde
       })
       addRow.append(input, addButton)
 
-      tagPanel.append(head, currentLabel, current, choiceLabel, choiceWrap, addRow)
+      sheet.append(head, currentLabel, current, choiceLabel, choiceWrap, addRow)
+      tagPanel.append(sheet)
     }
 
     void Promise.all(
@@ -211,10 +226,41 @@ export default function PhotoViewer({ photos, index, tagChoices, onClose, onInde
           onInit: (element) => {
             tagPanel = element
             tagPanel.hidden = true
-            element.addEventListener('pointerdown', (event) => event.stopPropagation())
+            element.style.setProperty('position', 'absolute', 'important')
+            element.style.setProperty('inset', '0', 'important')
+            element.style.setProperty('z-index', '100', 'important')
+            element.style.setProperty('width', '100%', 'important')
+            element.style.setProperty('max-height', 'none', 'important')
+            element.style.setProperty('overflow', 'hidden', 'important')
+            element.style.setProperty('transform', 'none', 'important')
+            element.style.setProperty('padding', '0', 'important')
+            element.style.setProperty('border-radius', '0', 'important')
+            element.style.setProperty('background', 'rgba(0, 0, 0, 0.18)', 'important')
+            element.style.setProperty('box-shadow', 'none', 'important')
+            element.style.setProperty('display', 'flex', 'important')
+            element.style.setProperty('align-items', 'flex-end', 'important')
+            element.style.setProperty('justify-content', 'center', 'important')
+            element.style.setProperty('touch-action', 'none', 'important')
+            element.addEventListener('pointerdown', (event) => {
+              event.preventDefault()
+              event.stopPropagation()
+            })
+            element.addEventListener('pointermove', (event) => {
+              event.preventDefault()
+              event.stopPropagation()
+            })
+            element.addEventListener('pointerup', (event) => event.stopPropagation())
             element.addEventListener('click', (event) => event.stopPropagation())
           },
         })
+      })
+
+      viewer.on('verticalDrag', (event) => {
+        if (tagPanelOpen) event.preventDefault()
+      })
+
+      viewer.on('pinchClose', (event) => {
+        if (tagPanelOpen) event.preventDefault()
       })
 
       viewer.on('change', () => {
