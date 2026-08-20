@@ -273,7 +273,8 @@
   position: relative;
 }
 
-.photo-tag-editor > summary {
+.photo-tag-editor > summary,
+.photo-tag-edit-button {
   list-style: none;
   width: 100%;
   border: 0;
@@ -312,13 +313,15 @@
   transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
 }
 
-.photo-card:has(.photo-tag-editor[open]) {
+.photo-card:has(.photo-tag-editor[open]),
+.photo-card.editing {
   border-color: #1976d2;
   background: #f7fbff !important;
   box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.16), 0 8px 22px rgba(0, 0, 0, 0.12);
 }
 
-.photo-card:has(.photo-tag-editor[open])::before {
+.photo-card:has(.photo-tag-editor[open])::before,
+.photo-card.editing::before {
   content: '編集中';
   position: absolute;
   top: 8px;
@@ -367,6 +370,147 @@
   color: #1267b9 !important;
   -webkit-text-fill-color: #1267b9 !important;
   font-size: 14px;
+}
+
+/* Fullscreen PhotoSwipe tag editor: keep the image visible and edit in a bottom sheet. */
+.pswp__button--photo-tags {
+  width: 52px !important;
+  height: 52px !important;
+  font-size: 22px !important;
+  line-height: 52px !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+.pswp__photo-tag-panel {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  z-index: 100;
+  width: min(100%, 720px);
+  max-height: min(52vh, 520px);
+  overflow: auto;
+  transform: translateX(-50%);
+  padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+  border-radius: 16px 16px 0 0;
+  background: rgba(255, 255, 255, 0.98) !important;
+  color: #222222 !important;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.32);
+  touch-action: pan-y;
+}
+
+.pswp__photo-tag-panel[hidden] {
+  display: none !important;
+}
+
+.pswp-tag-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.pswp-tag-head > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.pswp-tag-head strong {
+  color: #111111 !important;
+  -webkit-text-fill-color: #111111 !important;
+  font-size: 17px;
+}
+
+.pswp-tag-head small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #666666 !important;
+  -webkit-text-fill-color: #666666 !important;
+  font-size: 12px;
+}
+
+.pswp-tag-close {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border: 0;
+  border-radius: 50%;
+  background: #edf0f3 !important;
+  color: #333333 !important;
+  -webkit-text-fill-color: #333333 !important;
+  font-size: 22px;
+}
+
+.pswp-tag-section-label {
+  margin: 10px 0 6px;
+  color: #555555 !important;
+  -webkit-text-fill-color: #555555 !important;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.pswp-tag-current,
+.pswp-tag-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.pswp-tag-current-chip,
+.pswp-tag-choice {
+  border: 1px solid #d3dce6;
+  border-radius: 999px;
+  padding: 8px 10px;
+  background: #f7f8fa !important;
+  color: #3f4c58 !important;
+  -webkit-text-fill-color: #3f4c58 !important;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pswp-tag-choice.selected,
+.pswp-tag-current-chip {
+  border-color: #9cc4ee;
+  background: #e8f2ff !important;
+  color: #1267b9 !important;
+  -webkit-text-fill-color: #1267b9 !important;
+}
+
+.pswp-tag-empty {
+  color: #777777 !important;
+  -webkit-text-fill-color: #777777 !important;
+  font-size: 13px;
+}
+
+.pswp-tag-add-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.pswp-tag-add-row input {
+  min-width: 0;
+  border: 1px solid #cfd6dd;
+  border-radius: 9px;
+  padding: 10px;
+  background: #ffffff !important;
+  color: #222222 !important;
+  -webkit-text-fill-color: #222222 !important;
+  font-size: 16px;
+}
+
+.pswp-tag-add-row button {
+  border: 0;
+  border-radius: 9px;
+  padding: 10px 14px;
+  background: #1976d2 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  font-weight: 700;
 }
 
 .point-action-row {
@@ -476,6 +620,12 @@
   .tag-editor-photo-preview > div,
   .tag-editor-photo-preview .photo-thumb {
     width: 72px;
+  }
+
+  .pswp__photo-tag-panel {
+    max-height: 56vh;
+    padding-left: 12px;
+    padding-right: 12px;
   }
 
   .point-action-row {
