@@ -28,7 +28,45 @@ export default function PhotoViewer({ photos, index, onClose, onIndexChange }: P
   useEffect(() => {
     const urls = photos.map((photo) => URL.createObjectURL(photo.blob))
     let viewer: PhotoSwipe | null = null
+    let metaElement: HTMLElement | null = null
+    let pendingEditPhotoId: string | null = null
     let disposed = false
+
+    const getCurrentPhoto = () => {
+      if (!viewer) return null
+      return photos[viewer.currIndex] ?? null
+    }
+
+    const renderMeta = () => {
+      if (!metaElement) return
+      const photo = getCurrentPhoto()
+      metaElement.replaceChildren()
+      if (!photo) return
+
+      const categoryLine = document.createElement('div')
+      categoryLine.textContent = `写真種別：${photo.category || '未分類'}`
+      categoryLine.style.fontWeight = '800'
+      categoryLine.style.fontSize = '14px'
+
+      const tagLine = document.createElement('div')
+      tagLine.textContent = `タグ：${(photo.tags ?? []).length ? (photo.tags ?? []).join(' ・ ') : 'なし'}`
+      tagLine.style.marginTop = '4px'
+      tagLine.style.fontSize = '13px'
+      tagLine.style.lineHeight = '1.35'
+
+      metaElement.append(categoryLine, tagLine)
+    }
+
+    const openExistingPhotoEditor = (photoId: string) => {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          const card = document.getElementById(`photo-${photoId}`)
+          if (!card) return
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          card.querySelector<HTMLButtonElement>('.photo-tag-edit-button')?.click()
+        })
+      })
+    }
 
     void Promise.all(
       urls.map(async (src, photoIndex) => ({
@@ -60,12 +98,66 @@ export default function PhotoViewer({ photos, index, onClose, onIndexChange }: P
         bgOpacity: 1,
       })
 
+      viewer.on('uiRegister', () => {
+        if (!viewer?.ui) return
+        const ui = viewer.ui
+
+        ui.registerElement({
+          name: 'photo-edit',
+          order: 9,
+          isButton: true,
+          ariaLabel: '通常画面で写真タグを編集',
+          html: '編集',
+          onInit: (element) => {
+            element.style.width = '58px'
+            element.style.padding = '0 8px'
+            element.style.fontSize = '14px'
+            element.style.fontWeight = '800'
+            element.style.color = '#ffffff'
+          },
+          onClick: (event) => {
+            event.stopPropagation()
+            const photo = getCurrentPhoto()
+            if (!photo || !viewer) return
+            pendingEditPhotoId = photo.id
+            viewer.close()
+          },
+        })
+
+        ui.registerElement({
+          name: 'photo-meta-summary',
+          className: 'pswp__photo-meta-summary',
+          appendTo: 'root',
+          onInit: (element) => {
+            metaElement = element
+            element.style.position = 'absolute'
+            element.style.left = '12px'
+            element.style.right = '12px'
+            element.style.bottom = 'calc(12px + env(safe-area-inset-bottom))'
+            element.style.zIndex = '20'
+            element.style.maxWidth = '680px'
+            element.style.margin = '0 auto'
+            element.style.padding = '9px 12px'
+            element.style.borderRadius = '10px'
+            element.style.background = 'rgba(0, 0, 0, 0.62)'
+            element.style.color = '#ffffff'
+            element.style.pointerEvents = 'none'
+            element.style.boxSizing = 'border-box'
+            renderMeta()
+          },
+        })
+      })
+
       viewer.on('change', () => {
-        if (viewer) callbacksRef.current.onIndexChange(viewer.currIndex)
+        if (!viewer) return
+        callbacksRef.current.onIndexChange(viewer.currIndex)
+        renderMeta()
       })
 
       viewer.on('destroy', () => {
-        if (!disposed) callbacksRef.current.onClose()
+        if (disposed) return
+        callbacksRef.current.onClose()
+        if (pendingEditPhotoId) openExistingPhotoEditor(pendingEditPhotoId)
       })
 
       viewer.init()
