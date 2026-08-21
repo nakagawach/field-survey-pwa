@@ -37,24 +37,63 @@ export default function PhotoViewer({ photos, index, onClose, onIndexChange }: P
       return photos[viewer.currIndex] ?? null
     }
 
+    const requestExistingPhotoEditor = () => {
+      const photo = getCurrentPhoto()
+      if (!photo || !viewer) return
+      pendingEditPhotoId = photo.id
+      viewer.close()
+    }
+
     const renderMeta = () => {
       if (!metaElement) return
       const photo = getCurrentPhoto()
       metaElement.replaceChildren()
       if (!photo) return
 
+      const header = document.createElement('div')
+      header.style.display = 'flex'
+      header.style.alignItems = 'center'
+      header.style.justifyContent = 'space-between'
+      header.style.gap = '12px'
+
+      const heading = document.createElement('strong')
+      heading.textContent = '写真情報'
+      heading.style.fontSize = '14px'
+
+      const editButton = document.createElement('button')
+      editButton.type = 'button'
+      editButton.textContent = '編集'
+      editButton.setAttribute('aria-label', '通常画面で写真タグを編集')
+      editButton.style.flex = 'none'
+      editButton.style.border = '1px solid rgba(255,255,255,0.55)'
+      editButton.style.borderRadius = '8px'
+      editButton.style.padding = '6px 12px'
+      editButton.style.background = 'rgba(255,255,255,0.14)'
+      editButton.style.color = '#ffffff'
+      editButton.style.fontSize = '13px'
+      editButton.style.fontWeight = '800'
+      editButton.style.pointerEvents = 'auto'
+      editButton.addEventListener('click', (event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        requestExistingPhotoEditor()
+      })
+
+      header.append(heading, editButton)
+
       const categoryLine = document.createElement('div')
-      categoryLine.textContent = `写真種別：${photo.category || '未分類'}`
-      categoryLine.style.fontWeight = '800'
+      categoryLine.textContent = `種別　${photo.category || '未分類'}`
+      categoryLine.style.marginTop = '7px'
+      categoryLine.style.fontWeight = '700'
       categoryLine.style.fontSize = '14px'
 
       const tagLine = document.createElement('div')
-      tagLine.textContent = `タグ：${(photo.tags ?? []).length ? (photo.tags ?? []).join(' ・ ') : 'なし'}`
+      tagLine.textContent = `タグ　${(photo.tags ?? []).length ? (photo.tags ?? []).join(' ・ ') : 'なし'}`
       tagLine.style.marginTop = '4px'
       tagLine.style.fontSize = '13px'
       tagLine.style.lineHeight = '1.35'
 
-      metaElement.append(categoryLine, tagLine)
+      metaElement.append(header, categoryLine, tagLine)
     }
 
     const openExistingPhotoEditor = (photoId: string) => {
@@ -100,31 +139,7 @@ export default function PhotoViewer({ photos, index, onClose, onIndexChange }: P
 
       viewer.on('uiRegister', () => {
         if (!viewer?.ui) return
-        const ui = viewer.ui
-
-        ui.registerElement({
-          name: 'photo-edit',
-          order: 9,
-          isButton: true,
-          ariaLabel: '通常画面で写真タグを編集',
-          html: '編集',
-          onInit: (element) => {
-            element.style.width = '58px'
-            element.style.padding = '0 8px'
-            element.style.fontSize = '14px'
-            element.style.fontWeight = '800'
-            element.style.color = '#ffffff'
-          },
-          onClick: (event) => {
-            event.stopPropagation()
-            const photo = getCurrentPhoto()
-            if (!photo || !viewer) return
-            pendingEditPhotoId = photo.id
-            viewer.close()
-          },
-        })
-
-        ui.registerElement({
+        viewer.ui.registerElement({
           name: 'photo-meta-summary',
           className: 'pswp__photo-meta-summary',
           appendTo: 'root',
@@ -137,9 +152,9 @@ export default function PhotoViewer({ photos, index, onClose, onIndexChange }: P
             element.style.zIndex = '20'
             element.style.maxWidth = '680px'
             element.style.margin = '0 auto'
-            element.style.padding = '9px 12px'
-            element.style.borderRadius = '10px'
-            element.style.background = 'rgba(0, 0, 0, 0.62)'
+            element.style.padding = '10px 12px'
+            element.style.borderRadius = '12px'
+            element.style.background = 'rgba(0, 0, 0, 0.66)'
             element.style.color = '#ffffff'
             element.style.pointerEvents = 'none'
             element.style.boxSizing = 'border-box'
