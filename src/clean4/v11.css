@@ -422,6 +422,68 @@
   line-height: 1;
 }
 
+/* Point photo setup: separate the next-photo settings from the saved photo list. */
+.point-detail-content > section > .section-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  margin-bottom: 0;
+  padding: 14px 14px 10px;
+  border: 1px solid #dfe5eb;
+  border-bottom: 0;
+  border-radius: 14px 14px 0 0;
+  background: #f8fafc !important;
+}
+
+.point-detail-content > section > .section-head h2 {
+  grid-row: 1;
+  margin: 0 0 2px;
+}
+
+.point-detail-content > section > .section-head::after {
+  content: '次に撮る写真';
+  grid-row: 2;
+  color: #59636e;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.point-detail-content > section > .section-head select {
+  grid-row: 3;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  border-radius: 10px;
+  background: #ffffff !important;
+}
+
+.point-photo-picker-row {
+  margin-top: 0;
+  margin-bottom: 16px;
+  padding: 0 14px 14px;
+  border: 1px solid #dfe5eb;
+  border-top: 0;
+  border-radius: 0 0 14px 14px;
+  background: #f8fafc !important;
+}
+
+.point-photo-picker-row .picker-control {
+  width: 100%;
+  max-width: none;
+  min-height: 44px;
+  border-radius: 10px;
+}
+
+.point-photo-picker-row .picker-control span {
+  font-size: 0;
+}
+
+.point-photo-picker-row .picker-control span::before {
+  content: '🖼 端末の写真を追加';
+  font-size: 14px;
+  font-weight: 700;
+}
+
 /* Initial screen title only: show a smaller version suffix. */
 .app-header:not(:has(.back-button)) h1 {
   font-size: 0;
