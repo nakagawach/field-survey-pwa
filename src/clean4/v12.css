@@ -92,7 +92,8 @@
 }
 
 .picker-control.point-inline-library {
-  background: #e8f2ff !important;
+  border: 2px solid #1267b9;
+  background: #ffffff !important;
   color: #1267b9 !important;
   -webkit-text-fill-color: #1267b9 !important;
 }
@@ -137,6 +138,11 @@
   font-size: 11px;
   font-weight: 800;
   pointer-events: none;
+}
+
+/* Final visible release-candidate version label. */
+.app-header:not(:has(.back-button)) h1::after {
+  content: ' (v1.2)';
 }
 
 @media (max-width: 380px) {
