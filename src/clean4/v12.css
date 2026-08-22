@@ -98,6 +98,11 @@
   -webkit-text-fill-color: #1267b9 !important;
 }
 
+.picker-control.point-inline-library span {
+  color: #1267b9 !important;
+  -webkit-text-fill-color: #1267b9 !important;
+}
+
 /* The tag editor opener became a real button for Android TouchBridge compatibility. */
 .photo-tag-edit-button {
   width: 100%;
