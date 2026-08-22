@@ -1,0 +1,161 @@
+/* v1.2 point-photo UI refinements. Keep v1.1 styles intact and override locally. */
+
+/* Restore the photo section heading to a simple heading; the setup UI is now explicit DOM. */
+.point-detail-content > section > .section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent !important;
+}
+
+.point-detail-content > section > .section-head h2 {
+  margin: 0;
+}
+
+.point-detail-content > section > .section-head::after {
+  content: none;
+}
+
+.next-photo-card {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid #dfe5eb;
+  border-radius: 14px;
+  background: #f8fafc !important;
+}
+
+.next-photo-card > strong {
+  color: #333333 !important;
+  -webkit-text-fill-color: #333333 !important;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.next-photo-category {
+  display: grid;
+  gap: 6px;
+}
+
+.next-photo-category > span {
+  color: #59636e !important;
+  -webkit-text-fill-color: #59636e !important;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.next-photo-category select {
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  border-radius: 10px;
+  background: #ffffff !important;
+}
+
+.point-photo-picker-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent !important;
+}
+
+.point-photo-picker-row .picker-control {
+  width: 100%;
+  max-width: none;
+  min-height: 46px;
+  border-radius: 10px;
+}
+
+.point-photo-picker-row .picker-control span {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.point-photo-picker-row .picker-control span::before {
+  content: none;
+}
+
+.picker-control.point-inline-camera {
+  background: #168447 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+.picker-control.point-inline-library {
+  border: 2px solid #1267b9;
+  background: #ffffff !important;
+  color: #1267b9 !important;
+  -webkit-text-fill-color: #1267b9 !important;
+}
+
+.picker-control.point-inline-library span {
+  color: #1267b9 !important;
+  -webkit-text-fill-color: #1267b9 !important;
+}
+
+/* The tag editor opener became a real button for Android TouchBridge compatibility. */
+.photo-tag-edit-button {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #bdd8f2;
+  border-radius: 9px;
+  padding: 9px 12px;
+  background: #e8f2ff !important;
+  color: #1267b9 !important;
+  -webkit-text-fill-color: #1267b9 !important;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.photo-tag-edit-button:active {
+  background: #d7eaff !important;
+}
+
+/* Current implementation marks the target card with the editing class. */
+.photo-card.editing {
+  border-color: #1976d2;
+  background: #f7fbff !important;
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.16), 0 8px 22px rgba(0, 0, 0, 0.12);
+}
+
+.photo-card.editing::before {
+  content: '編集中';
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 3;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #1976d2 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  font-size: 11px;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+/* Final visible release-candidate version label. */
+.app-header:not(:has(.back-button)) h1::after {
+  content: ' (v1.2)';
+}
+
+@media (max-width: 380px) {
+  .point-photo-picker-row {
+    gap: 6px;
+  }
+
+  .point-photo-picker-row .picker-control span {
+    font-size: 13px;
+  }
+}

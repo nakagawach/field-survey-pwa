@@ -44,8 +44,444 @@
   font-size: 12px;
 }
 
-.boundary-nav-card .button-row {
-  margin-top: 10px;
+/* Point detail footer: keep tags, point navigation and camera in fixed positions. */
+.point-detail-content {
+  padding-bottom: calc(154px + env(safe-area-inset-bottom));
+}
+
+.point-photo-picker-row {
+  justify-content: flex-start;
+}
+
+.point-photo-picker-row .picker-control {
+  max-width: 240px;
+}
+
+.point-action-footer {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  z-index: 18;
+  width: min(100%, 720px);
+  transform: translateX(-50%);
+  border-top: 1px solid #d6dce3;
+  background: #ffffff !important;
+  box-shadow: 0 -5px 18px rgba(0, 0, 0, 0.14);
+}
+
+.capture-tag-summary-row {
+  min-height: 48px;
+  padding: 7px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #eceff2;
+}
+
+.capture-tag-current {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.capture-tag-label {
+  flex: none;
+  font-size: 16px;
+}
+
+.capture-tag-current-list {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+}
+
+.capture-tag-current-chip,
+.capture-tag-more {
+  flex: none;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #e8f2ff !important;
+  color: #1267b9 !important;
+  -webkit-text-fill-color: #1267b9 !important;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.capture-tag-more {
+  background: #f0f2f5 !important;
+  color: #555555 !important;
+  -webkit-text-fill-color: #555555 !important;
+}
+
+.capture-tag-none {
+  color: #777777 !important;
+  font-size: 13px;
+}
+
+.capture-tag-menu {
+  position: relative;
+  flex: none;
+}
+
+.capture-tag-menu > summary {
+  list-style: none;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 11px;
+  background: #e8f2ff !important;
+  color: #1267b9 !important;
+  -webkit-text-fill-color: #1267b9 !important;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.capture-tag-menu > summary::-webkit-details-marker,
+.photo-tag-editor > summary::-webkit-details-marker {
+  display: none;
+}
+
+.capture-tag-menu-panel {
+  position: absolute;
+  right: -4px;
+  bottom: calc(100% + 10px);
+  width: min(92vw, 460px);
+  max-height: min(62vh, 520px);
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid #d6dce3;
+  border-radius: 14px;
+  background: #ffffff !important;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+}
+
+.capture-tag-menu-head {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.capture-tag-menu-head strong {
+  color: #111111 !important;
+  font-size: 16px;
+}
+
+.capture-tag-menu-head small,
+.tag-editor-head small {
+  color: #666666 !important;
+  font-size: 12px;
+}
+
+.capture-tag-selected-preview {
+  padding: 10px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  background: #f6f8fa !important;
+}
+
+.capture-tag-selected-preview > span:first-child {
+  display: block;
+  margin-bottom: 7px;
+  color: #555555 !important;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tag-chip.selected-preview {
+  pointer-events: none;
+  border-color: #b8d8c4;
+  background: #f4fbf6 !important;
+  color: #23733c !important;
+  -webkit-text-fill-color: #23733c !important;
+}
+
+.capture-tag-choices {
+  align-items: flex-start;
+}
+
+.capture-tag-choices .tag-chip {
+  min-height: 36px;
+}
+
+.tag-editor-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.tag-editor-head > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tag-editor-head strong {
+  color: #111111 !important;
+  font-size: 16px;
+}
+
+.tag-editor-close {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border: 0;
+  border-radius: 50%;
+  background: #f0f2f5 !important;
+  color: #333333 !important;
+  -webkit-text-fill-color: #333333 !important;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.tag-editor-done {
+  width: 100%;
+  margin-top: 12px;
+  border: 0;
+  border-radius: 9px;
+  padding: 11px 12px;
+  background: #1976d2 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  font-weight: 700;
+}
+
+.photo-tags-summary {
+  display: grid;
+  gap: 8px;
+}
+
+.tag-chip.photo-tag-display {
+  pointer-events: none;
+  padding: 5px 8px;
+  border-color: #d3dce6;
+  background: #f7f8fa !important;
+  color: #3f4c58 !important;
+  -webkit-text-fill-color: #3f4c58 !important;
+  font-size: 11px;
+}
+
+.photo-tag-editor {
+  position: relative;
+}
+
+.photo-tag-editor > summary {
+  list-style: none;
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 10px;
+  text-align: center;
+  background: #e8f2ff !important;
+  color: #1267b9 !important;
+  -webkit-text-fill-color: #1267b9 !important;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.photo-tag-editor-panel {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 35;
+  width: min(92vw, 460px);
+  max-height: min(76vh, 620px);
+  overflow: auto;
+  transform: translate(-50%, -50%);
+  padding: 14px;
+  border: 1px solid #d6dce3;
+  border-radius: 14px;
+  background: #ffffff !important;
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.28);
+}
+
+/* Photo focus: show clearly which card is being edited and where new photos land. */
+.photo-card {
+  position: relative;
+  scroll-margin-top: 78px;
+  scroll-margin-bottom: calc(170px + env(safe-area-inset-bottom));
+  transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+}
+
+.photo-card:has(.photo-tag-editor[open]) {
+  border-color: #1976d2;
+  background: #f7fbff !important;
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.16), 0 8px 22px rgba(0, 0, 0, 0.12);
+}
+
+.photo-card:has(.photo-tag-editor[open])::before {
+  content: '編集中';
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 3;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #1976d2 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  font-size: 11px;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+.tag-editor-photo-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid #d9e5f2;
+  border-radius: 10px;
+  background: #f7fbff !important;
+}
+
+.tag-editor-photo-preview > div {
+  width: 82px;
+  flex: none;
+  pointer-events: none;
+}
+
+.tag-editor-photo-preview .photo-thumb {
+  width: 82px;
+  min-height: 64px;
+  aspect-ratio: 4 / 3;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tag-editor-photo-preview .photo-thumb span {
+  display: none;
+}
+
+.tag-editor-photo-preview strong {
+  color: #1267b9 !important;
+  -webkit-text-fill-color: #1267b9 !important;
+  font-size: 14px;
+}
+
+.point-action-row {
+  min-height: 66px;
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) 58px;
+  align-items: center;
+  gap: 7px;
+}
+
+.point-nav-button {
+  min-width: 0;
+  border: 0;
+  border-radius: 9px;
+  padding: 10px 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: #e8f2ff !important;
+  color: #1267b9 !important;
+  -webkit-text-fill-color: #1267b9 !important;
+  font-weight: 700;
+}
+
+.point-nav-button:disabled {
+  opacity: 0.38;
+}
+
+.point-position {
+  min-width: 46px;
+  text-align: center;
+  color: #333333 !important;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.picker-control.point-footer-camera {
+  position: relative;
+  inset: auto;
+  width: 58px;
+  height: 50px;
+  min-height: 50px;
+  max-width: none;
+  flex: none;
+  border-radius: 12px;
+  box-shadow: none;
+  background: #168447 !important;
+}
+
+.picker-control.point-footer-camera span {
+  font-size: 26px;
+  line-height: 1;
+}
+
+/* Point photo setup: separate the next-photo settings from the saved photo list. */
+.point-detail-content > section > .section-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  margin-bottom: 0;
+  padding: 14px 14px 10px;
+  border: 1px solid #dfe5eb;
+  border-bottom: 0;
+  border-radius: 14px 14px 0 0;
+  background: #f8fafc !important;
+}
+
+.point-detail-content > section > .section-head h2 {
+  grid-row: 1;
+  margin: 0 0 2px;
+}
+
+.point-detail-content > section > .section-head::after {
+  content: '次に撮る写真';
+  grid-row: 2;
+  color: #59636e;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.point-detail-content > section > .section-head select {
+  grid-row: 3;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  border-radius: 10px;
+  background: #ffffff !important;
+}
+
+.point-photo-picker-row {
+  margin-top: 0;
+  margin-bottom: 16px;
+  padding: 0 14px 14px;
+  border: 1px solid #dfe5eb;
+  border-top: 0;
+  border-radius: 0 0 14px 14px;
+  background: #f8fafc !important;
+}
+
+.point-photo-picker-row .picker-control {
+  width: 100%;
+  max-width: none;
+  min-height: 44px;
+  border-radius: 10px;
+}
+
+.point-photo-picker-row .picker-control span {
+  font-size: 0;
+}
+
+.point-photo-picker-row .picker-control span::before {
+  content: '🖼 端末の写真を追加';
+  font-size: 14px;
+  font-weight: 700;
 }
 
 /* Initial screen title only: show a smaller version suffix. */
@@ -72,5 +508,56 @@
 
   .project-detail-actions .small-button {
     width: 100%;
+  }
+
+  .point-detail-content {
+    padding-bottom: calc(150px + env(safe-area-inset-bottom));
+  }
+
+  .capture-tag-summary-row {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .capture-tag-current-chip {
+    max-width: 88px;
+    padding-left: 7px;
+    padding-right: 7px;
+  }
+
+  .capture-tag-menu-panel,
+  .photo-tag-editor-panel {
+    width: min(94vw, 420px);
+    padding: 12px;
+  }
+
+  .capture-tag-menu-panel {
+    right: -2px;
+  }
+
+  .tag-editor-photo-preview > div,
+  .tag-editor-photo-preview .photo-thumb {
+    width: 72px;
+  }
+
+  .point-action-row {
+    grid-template-columns: minmax(0, 1fr) 42px minmax(0, 1fr) 56px;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .point-nav-button {
+    padding-left: 6px;
+    padding-right: 6px;
+    font-size: 13px;
+  }
+
+  .point-position {
+    min-width: 42px;
+    font-size: 12px;
+  }
+
+  .picker-control.point-footer-camera {
+    width: 56px;
   }
 }
